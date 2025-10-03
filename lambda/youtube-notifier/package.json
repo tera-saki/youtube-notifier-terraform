@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.902.0",
+    "@aws-sdk/lib-dynamodb": "^3.902.0",
+    "axios": "^1.12.2",
+    "googleapis": "^161.0.0",
+    "luxon": "^3.7.2"
+  }
+}
