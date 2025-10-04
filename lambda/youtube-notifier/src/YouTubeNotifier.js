@@ -48,7 +48,7 @@ class YouTubeNotifier {
     if (video.liveBroadcastContent === 'upcoming') {
       const localeString = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
-      ).toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
+      ).setZone('Asia/Tokyo').toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
       text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.\n${video.title}\n${videoURL}`
     } else if (video.liveBroadcastContent === 'live') {
       text = `:microphone: ${video.channelTitle} is now live!\n${video.title}\n${videoURL}`
