@@ -37,6 +37,7 @@ async function handleGet({ params }) {
   const mode = params['hub.mode']
   const topic = params['hub.topic']
   const challenge = params['hub.challenge']
+  const lease_seconds = params['hub.lease_seconds']
 
   if (!['subscribe', 'unsubscribe'].includes(mode)) {
     return generateResponse(400, 'Invalid hub.mode parameter')
@@ -51,13 +52,20 @@ async function handleGet({ params }) {
   console.log('GET Verification:', { mode, topic })
 
   if (mode == 'subscribe') {
+    if (!lease_seconds || Number.isNaN(Number.parseInt(lease_seconds, 10))) {
+      return generateResponse(400, 'Invalid hub.lease_seconds parameter')
+    }
+    const subscriptionExpiredAt = DateTime.now()
+      .plus({ seconds: Number.parseInt(lease_seconds, 10) })
+      .toISO()
+
     await DynamoDBHelper.updateItem(
       DYNAMODB_TABLE_NAME,
       {
         channelId: params.channel_id,
       },
       {
-        subscriptionExpiredAt: DateTime.now().plus({ days: 10 }).toISO(),
+        subscriptionExpiredAt,
       },
     )
   }
