@@ -1,5 +1,8 @@
 {
   "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "eslint": "^9.37.0",
+    "globals": "^16.4.0",
     "prettier": "^3.6.2"
   },
   "dependencies": {
@@ -10,6 +13,7 @@
     "luxon": "^3.7.2"
   },
   "scripts": {
-    "build": "../scripts/build.sh youtube-notifier"
+    "build": "../scripts/build.sh youtube-notifier",
+    "lint": "eslint src --ext .js"
   }
 }
