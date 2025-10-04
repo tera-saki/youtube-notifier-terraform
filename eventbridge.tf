@@ -1,7 +1,7 @@
 # EventBridge Scheduler for YouTube Notifier Lambda
 resource "aws_scheduler_schedule" "youtube_notifier" {
   name                = "youtube-notifier-scheduler"
-  schedule_expression = "rate(10 minutes)"
+  schedule_expression = "rate(1 hours)"
   flexible_time_window {
     mode = "OFF"
   }
