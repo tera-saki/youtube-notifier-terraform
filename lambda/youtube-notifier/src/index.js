@@ -1,34 +1,13 @@
-const { handleGet, handlePost } = require('./handler')
+const handleWebhook = require('./webhookHander')
 
 exports.handler = async (event) => {
-  console.log('Received event:', JSON.stringify(event, null, 2))
+  console.log('Received event:', JSON.stringify(event))
 
   try {
-    const {
-      httpMethod,
-      queryStringParameters: params,
-      requestContext,
-      body: requestBody,
-    } = event
-
-    const method = httpMethod ?? requestContext.http.method
-
-    let response
-    if (method === 'GET') {
-      response = handleGet({ params })
-    } else if (method === 'POST') {
-      response = handlePost({ params, body: requestBody })
-    } else {
-      throw new Error(`Unsupported HTTP method: ${method}`)
-    }
-
-    const { statusCode, body: responseBody } = await response
-    return {
-      statusCode,
-      body: responseBody,
-    }
+    const { statusCode, body } = await handleWebhook(event)
+    return { statusCode, body }
   } catch (error) {
-    console.error('Error handling webhook:', error)
+    console.error('Error occurs while processing the event:', error)
     return {
       statusCode: 500,
       body: 'Internal Server Error',

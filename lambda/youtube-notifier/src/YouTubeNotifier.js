@@ -9,6 +9,8 @@ const {
   PutCommand,
 } = require('@aws-sdk/lib-dynamodb')
 
+const { DYNAMODB_TABLE_NAME, SLACK_WEBHOOK_URL } = require('./constants')
+
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
 
 class YouTubeNotifier {
@@ -31,17 +33,9 @@ class YouTubeNotifier {
 
     const client = new DynamoDBClient({})
     this.docClient = DynamoDBDocumentClient.from(client)
-    this.dynamoTable = process.env.DYNAMODB_TABLE_NAME
+    this.dynamoTable = DYNAMODB_TABLE_NAME
 
-    if (!this.dynamoTable) {
-      throw new Error('DYNAMODB_TABLE_NAME environment variable is not set')
-    }
-
-    this.webhook_url = process.env.SLACK_WEBHOOK_URL
-
-    if (!this.webhook_url) {
-      throw new Error('SLACK_WEBHOOK_URL environment variable is not set')
-    }
+    this.slack_webhook_url = SLACK_WEBHOOK_URL
   }
 
   async getChannelStatus(channelId) {
@@ -64,7 +58,7 @@ class YouTubeNotifier {
   }
 
   validateVideo(video) {
-    const exclude_words = this.config?.exclude_words ?? []
+    const exclude_words = this.config.exclude_words ?? []
     return exclude_words.every((w) => !video.title.match(w))
   }
 
@@ -83,7 +77,7 @@ class YouTubeNotifier {
     } else {
       text = `:clapper: ${video.channelTitle} uploaded a new video.\n${video.title}\n${videoURL}`
     }
-    await axios.post(this.webhook_url, { text })
+    await axios.post(this.slack_webhook_url, { text })
   }
 
   async run(channelId) {

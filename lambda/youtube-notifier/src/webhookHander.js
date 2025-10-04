@@ -1,17 +1,20 @@
-const path = require('node:path')
-
 const YoutubeNotifier = require('./YouTubeNotifier')
 
-const rootDir = path.join(__dirname, '..')
-const credentialsPath = path.join(rootDir, 'credentials', 'credentials.json')
-const tokenPath = path.join(rootDir, 'credentials', 'token.json')
-const configPath = path.join(rootDir, 'config', 'config.json')
+const { credentialsPath, tokenPath, configPath } = require('./constants')
 
 const notifier = new YoutubeNotifier({
   credentialsPath,
   tokenPath,
   configPath,
 })
+
+function validateChannelId(channelId) {
+  if (!typeof channelId !== 'string') {
+    return false
+  }
+  const regex = /^[a-zA-Z0-9\-_]{24}$/
+  return regex.test(channelId)
+}
 
 function handleGet({ params }) {
   const mode = params['hub.mode']
@@ -45,7 +48,7 @@ async function handlePost({ params, body }) {
       body: 'Missing channel_id parameter',
     }
   }
-  if (typeof channelId !== 'string' || channelId.length !== 24) {
+  if (!validateChannelId(channelId)) {
     return {
       statusCode: 400,
       body: 'Invalid channelId parameter',
@@ -59,4 +62,29 @@ async function handlePost({ params, body }) {
   }
 }
 
-module.exports = { handleGet, handlePost }
+async function handleWebhook(event) {
+  const {
+    queryStringParameters: params,
+    requestContext,
+    body: requestBody,
+  } = event
+
+  const method = requestContext.http.method
+
+  let response
+  if (method === 'GET') {
+    response = handleGet({ params })
+  } else if (method === 'POST') {
+    response = handlePost({ params, body: requestBody })
+  } else {
+    throw new Error(`Unsupported HTTP method: ${method}`)
+  }
+
+  const { statusCode, body: responseBody } = await response
+  return {
+    statusCode,
+    body: responseBody,
+  }
+}
+
+module.exports = handleWebhook

@@ -8,5 +8,8 @@
     "axios": "^1.12.2",
     "googleapis": "^161.0.0",
     "luxon": "^3.7.2"
+  },
+  "scripts": {
+    "build": "../scripts/build.sh youtube-notifier"
   }
 }
