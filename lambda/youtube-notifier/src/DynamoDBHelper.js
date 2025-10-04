@@ -3,6 +3,7 @@ const {
   DynamoDBDocumentClient,
   GetCommand,
   UpdateCommand,
+  DeleteCommand,
   ScanCommand,
 } = require('@aws-sdk/lib-dynamodb')
 
@@ -38,6 +39,15 @@ class DynamoDBHelper {
         Key: key,
         UpdateExpression: updateExpression,
         ExpressionAttributeValues: expressionAttributeValues,
+      }),
+    )
+  }
+
+  async deleteItem(tableName, key) {
+    await this.docClient.send(
+      new DeleteCommand({
+        TableName: tableName,
+        Key: key,
       }),
     )
   }
