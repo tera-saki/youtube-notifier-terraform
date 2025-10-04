@@ -14,6 +14,9 @@ exports.handler = async (event) => {
 
   try {
     const response = await handler(event)
+    if (response.statusCode >= 400) {
+      console.warn('Error response:', response)
+    }
     return response
   } catch (error) {
     console.error('Error occurs while processing the event:', error)
