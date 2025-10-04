@@ -6,7 +6,7 @@ locals {
         DYNAMODB_TABLE_NAME = aws_dynamodb_table.youtube_channel_status.name
         SLACK_WEBHOOK_URL   = var.SLACK_WEBHOOK_URL
       }
-      timeout = 120
+      timeout = 300
     }
   }
 }
