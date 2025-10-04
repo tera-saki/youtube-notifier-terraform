@@ -1,16 +1,22 @@
 const handleWebhook = require('./webhookHander')
+const handleSchedule = require('./scheduleHandler')
+const { generateResponse } = require('./utils')
 
 exports.handler = async (event) => {
-  console.log('Received event:', JSON.stringify(event))
+  console.log('Received event:', JSON.stringify(event, null, 2))
+
+  let handler
+  if (event.invokedFromScheduler) {
+    handler = handleSchedule
+  } else {
+    handler = handleWebhook
+  }
 
   try {
-    const { statusCode, body } = await handleWebhook(event)
-    return { statusCode, body }
+    const response = await handler(event)
+    return response
   } catch (error) {
     console.error('Error occurs while processing the event:', error)
-    return {
-      statusCode: 500,
-      body: 'Internal Server Error',
-    }
+    return generateResponse(500)
   }
 }

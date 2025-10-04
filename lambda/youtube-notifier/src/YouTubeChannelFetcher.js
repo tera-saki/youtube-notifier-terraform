@@ -24,7 +24,7 @@ class YouTubeChannelFetcher {
     } while (pageToken)
 
     return channels.map((c) => ({
-      id: c.snippet.resourceId.channelId,
+      channelId: c.snippet.resourceId.channelId,
       name: c.snippet.title,
     }))
   }

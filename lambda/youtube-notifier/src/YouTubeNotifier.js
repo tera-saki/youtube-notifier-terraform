@@ -2,13 +2,8 @@ const fs = require('node:fs')
 
 const axios = require('axios')
 const { DateTime } = require('luxon')
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb')
-const {
-  DynamoDBDocumentClient,
-  GetCommand,
-  PutCommand,
-} = require('@aws-sdk/lib-dynamodb')
 
+const DynamoDBHelper = require('./DynamoDBHelper')
 const { DYNAMODB_TABLE_NAME, SLACK_WEBHOOK_URL } = require('./constants')
 
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
@@ -31,30 +26,15 @@ class YouTubeNotifier {
     })
     this.config = JSON.parse(fs.readFileSync(configPath, { encoding: 'utf-8' }))
 
-    const client = new DynamoDBClient({})
-    this.docClient = DynamoDBDocumentClient.from(client)
-    this.dynamoTable = DYNAMODB_TABLE_NAME
-
     this.slack_webhook_url = SLACK_WEBHOOK_URL
   }
 
   async getChannelStatus(channelId) {
-    const res = await this.docClient.send(
-      new GetCommand({
-        TableName: this.dynamoTable,
-        Key: { channelId },
-      }),
-    )
-    return res.Item
+    return DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, { channelId })
   }
 
-  async putChannelStatus(channelId, status) {
-    await this.docClient.send(
-      new PutCommand({
-        TableName: this.dynamoTable,
-        Item: { channelId, ...status },
-      }),
-    )
+  async updateChannelStatus(channelId, status) {
+    return DynamoDBHelper.updateItem(DYNAMODB_TABLE_NAME, { channelId }, status)
   }
 
   validateVideo(video) {
@@ -83,7 +63,7 @@ class YouTubeNotifier {
   async run(channelId) {
     const channelStatus = await this.getChannelStatus(channelId)
 
-    const start = channelStatus
+    const start = channelStatus?.lastPublishedAt
       ? DateTime.fromISO(channelStatus.lastPublishedAt)
           .plus({ seconds: 1 })
           .toISO()
@@ -100,7 +80,7 @@ class YouTubeNotifier {
       }
     }
     // update lastPublishedAt even if the video is excluded not to call videos.list API again
-    await this.putChannelStatus(channelId, {
+    await this.updateChannelStatus(channelId, {
       lastPublishedAt: videos[0].publishedAt,
     })
   }

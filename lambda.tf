@@ -2,10 +2,11 @@ locals {
   lambda_configs = {
     "youtube-notifier" = {
       environment = {
+        APIGATEWAY_ENDPOINT = aws_apigatewayv2_api.youtube_webhook.api_endpoint
         DYNAMODB_TABLE_NAME = aws_dynamodb_table.youtube_channel_status.name
         SLACK_WEBHOOK_URL   = var.SLACK_WEBHOOK_URL
       }
-      timeout = 30
+      timeout = 120
     }
   }
 }
@@ -36,6 +37,7 @@ resource "aws_lambda_function" "main" {
   role             = aws_iam_role.lambda[each.key].arn
   handler          = "src/index.handler"
   runtime          = "nodejs22.x"
+  memory_size      = 256
   timeout          = each.value.timeout
   source_code_hash = filesha256("lambda/${each.key}/dist/function.zip")
 

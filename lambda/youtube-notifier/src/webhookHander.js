@@ -1,6 +1,14 @@
-const YoutubeNotifier = require('./YouTubeNotifier')
+const { DateTime } = require('luxon')
 
-const { credentialsPath, tokenPath, configPath } = require('./constants')
+const DynamoDBHelper = require('./DynamoDBHelper')
+const YoutubeNotifier = require('./YouTubeNotifier')
+const {
+  credentialsPath,
+  tokenPath,
+  configPath,
+  DYNAMODB_TABLE_NAME,
+} = require('./constants')
+const { generateResponse } = require('./utils')
 
 const notifier = new YoutubeNotifier({
   credentialsPath,
@@ -9,30 +17,51 @@ const notifier = new YoutubeNotifier({
 })
 
 function validateChannelId(channelId) {
-  if (!typeof channelId !== 'string') {
+  if (typeof channelId !== 'string') {
     return false
   }
   const regex = /^[a-zA-Z0-9\-_]{24}$/
   return regex.test(channelId)
 }
 
-function handleGet({ params }) {
+function validateTopic(topic) {
+  if (typeof topic !== 'string') {
+    return false
+  }
+  const regex =
+    /^https:\/\/www\.youtube\.com\/xml\/feeds\/videos\.xml\?channel_id=[a-zA-Z0-9\-_]{24}$/
+  return regex.test(topic)
+}
+
+async function handleGet({ params }) {
   const mode = params['hub.mode']
   const topic = params['hub.topic']
   const challenge = params['hub.challenge']
 
+  if (!['subscribe', 'unsubscribe'].includes(mode)) {
+    return generateResponse(400, 'Invalid hub.mode parameter')
+  }
+  if (!validateTopic(topic)) {
+    return generateResponse(400, 'Invalid hub.topic parameter')
+  }
+  if (!challenge) {
+    return generateResponse(400, 'Missing hub.challenge parameter')
+  }
+
   console.log('GET Verification:', { mode, topic })
 
-  if (mode === 'subscribe' || mode === 'unsubscribe') {
-    return {
-      statusCode: 200,
-      body: challenge,
-    }
+  if (mode == 'subscribe') {
+    await DynamoDBHelper.updateItem(
+      DYNAMODB_TABLE_NAME,
+      {
+        channelId: params.channel_id,
+      },
+      {
+        subscriptionExpiredAt: DateTime.now().plus({ days: 10 }).toISO(),
+      },
+    )
   }
-  return {
-    statusCode: 400,
-    body: 'Invalid request',
-  }
+  return generateResponse(200, challenge)
 }
 
 // TODO: validation
@@ -43,23 +72,15 @@ async function handlePost({ params, body }) {
 
   const channelId = params.channel_id
   if (!channelId) {
-    return {
-      statusCode: 400,
-      body: 'Missing channel_id parameter',
-    }
+    return generateResponse(400, 'Missing channel_id parameter')
   }
   if (!validateChannelId(channelId)) {
-    return {
-      statusCode: 400,
-      body: 'Invalid channelId parameter',
-    }
+    return generateResponse(400, 'Invalid channel_id parameter')
   }
 
   await notifier.run(channelId)
 
-  return {
-    statusCode: 204,
-  }
+  return generateResponse(204)
 }
 
 async function handleWebhook(event) {

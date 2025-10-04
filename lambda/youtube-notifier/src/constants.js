@@ -16,10 +16,16 @@ if (!SLACK_WEBHOOK_URL) {
   throw new Error('SLACK_WEBHOOK_URL environment variable is not set')
 }
 
+const APIGATEWAY_ENDPOINT = process.env.APIGATEWAY_ENDPOINT
+if (!APIGATEWAY_ENDPOINT) {
+  throw new Error('APIGATEWAY_ENDPOINT environment variable is not set')
+}
+
 module.exports = {
   credentialsPath,
   tokenPath,
   configPath,
   DYNAMODB_TABLE_NAME,
   SLACK_WEBHOOK_URL,
+  APIGATEWAY_ENDPOINT,
 }
