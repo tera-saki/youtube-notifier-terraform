@@ -11,6 +11,7 @@ locals {
   }
 }
 
+
 resource "aws_iam_role" "lambda" {
   for_each = local.lambda_configs
   name     = "lambda_exec_role_${each.key}"
@@ -29,6 +30,13 @@ resource "aws_iam_role" "lambda" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  for_each = local.lambda_configs
+
+  name              = "/aws/lambda/${each.key}"
+  retention_in_days = 30
+}
+
 resource "aws_lambda_function" "main" {
   for_each = local.lambda_configs
 
@@ -44,6 +52,9 @@ resource "aws_lambda_function" "main" {
   environment {
     variables = lookup(each.value, "environment", {})
   }
+
+  # CloudWatch Logs グループの依存関係を追加
+  depends_on = [aws_cloudwatch_log_group.lambda_logs]
 }
 
 resource "aws_iam_role_policy_attachment" "lambda" {
