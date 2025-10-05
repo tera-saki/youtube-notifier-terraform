@@ -5,17 +5,22 @@ YouTube チャンネルの更新を Webhook で受け取り、Slack 通知を行
 
 ## システム構成図
 
+- 破線: topic subscription フロー
+- 太線: 動画通知フロー
+
 ```mermaid
 flowchart TD
-    youtube[YouTube API] <--> pubsub[PubSubHubbub]
-    pubsub <--> apigw[API Gateway]
-    apigw <---> lambda[Lambda youtube-notifier]
-    scheduler[EventBridge Scheduler] --> lambda
-    lambda --> youtube
-    lambda --> pubsub
-    lambda --> dynamo[DynamoDB]
+    youtube[YouTube API] <--> hub[Google PubSubHubbub Hub]
+    hub -. 4: topic subscription validation .-> apigw[API Gateway]
+    hub == i: publish topic ==> apigw[API Gateway]
+    apigw <-- bypass message --> lambda[Lambda youtube-notifier]
+    lambda -. 2: get subscribed channels .-> youtube
+    lambda == ii: fetch new videos ==> youtube
+    lambda -. 3: topic subscription request .-> hub
+    lambda <-- get/update topic subscription info --> dynamo[DynamoDB]
     lambda --> cw[CloudWatch Logs]
-    lambda --> slack[Slack Webhook]
+    lambda == iii: notify ==> slack[Slack Webhook]
+    scheduler[EventBridge Scheduler] -. 1: invoke .-> lambda
     cw --> alarm[CloudWatch Alarms]
     alarm --> sns[SNS Notifications]
 ```
@@ -24,8 +29,8 @@ flowchart TD
 
 1. **Lambda Function (youtube-notifier)**
 
-   - Youtube API からユーザがサブスクライブしているチャンネルを取得し、Pubsubhubbub にチャンネルの topic のサブスクライブ（解除）のリクエストを送信
-   - Pubsubhubbub からの通知を基に、YouTube API から新着の動画・ライブ情報を取得して Slack に通知
+   - Youtube API からユーザがサブスクライブしているチャンネルを取得し、Google PubSubHubbub Hub にチャンネルの topic のサブスクライブ（解除）のリクエストを送信
+   - Hub からの通知を基に、YouTube API から新着の動画・ライブ情報を取得して Slack に通知
 
 2. **API Gateway**
 
