@@ -1,4 +1,4 @@
-const handleWebhook = require('./webhookHander')
+const handleWebhook = require('./webhookHandler')
 const handleSchedule = require('./scheduleHandler')
 const { generateResponse } = require('./utils')
 

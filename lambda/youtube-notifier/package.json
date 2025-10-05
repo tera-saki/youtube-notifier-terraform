@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": ">= 22"
+  },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "eslint": "^9.37.0",
@@ -13,6 +16,7 @@
     "luxon": "^3.7.2"
   },
   "scripts": {
+    "build-layer": "../scripts/build_lambda_layer.sh youtube-notifier",
     "build": "../scripts/build.sh youtube-notifier",
     "lint": "eslint src --ext .js"
   }
