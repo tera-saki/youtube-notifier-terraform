@@ -4,7 +4,7 @@ import { defineConfig } from 'eslint/config'
 
 export default defineConfig([
   {
-    files: ['**/*.{js,mjs,cjs}'],
+    files: ['**/*.js'],
     plugins: { js },
     extends: ['js/recommended'],
     languageOptions: {
@@ -13,12 +13,6 @@ export default defineConfig([
         ...globals.commonjs,
       },
       ecmaVersion: 2025,
-      sourceType: 'commonjs',
-    },
-  },
-  {
-    files: ['**/*.js'],
-    languageOptions: {
       sourceType: 'commonjs',
     },
   },

@@ -51,7 +51,7 @@ async function handleGet({ params }) {
 
   console.log('GET Verification:', { mode, topic })
 
-  if (mode == 'subscribe') {
+  if (mode === 'subscribe') {
     if (!lease_seconds || Number.isNaN(Number.parseInt(lease_seconds, 10))) {
       return generateResponse(400, 'Invalid hub.lease_seconds parameter')
     }
