@@ -44,18 +44,30 @@ class YouTubeNotifier {
 
   async notify(video) {
     const videoURL = `https://www.youtube.com/watch?v=${video.videoId}`
-    let text
-    if (video.liveBroadcastContent === 'upcoming') {
-      const localeString = DateTime.fromISO(
-        video.liveStreamingDetails.scheduledStartTime,
-      ).setZone('Asia/Tokyo').toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
-      text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.\n${video.title}\n${videoURL}`
-    } else if (video.liveBroadcastContent === 'live') {
-      text = `:microphone: ${video.channelTitle} is now live!\n${video.title}\n${videoURL}`
-    } else if (video.liveStreamingDetails?.actualEndTime) {
+
+    if (video.liveStreamingDetails?.actualEndTime) {
       return // Do not notify ended live streams
-    } else {
+    }
+
+    let text
+    if (video.liveBroadcastContent === 'none') {
       text = `:clapper: ${video.channelTitle} uploaded a new video.\n${video.title}\n${videoURL}`
+    } else {
+      const scheduledStartTime = DateTime.fromISO(
+        video.liveStreamingDetails.scheduledStartTime,
+      )
+      if (
+        video.liveBroadcastContent === 'live' ||
+        // ライブ開始でもliveBroadcastContentがupcomingの場合あり
+        scheduledStartTime < DateTime.now()
+      ) {
+        text = `:microphone: ${video.channelTitle} is now live!\n${video.title}\n${videoURL}`
+      } else {
+        const localeString = scheduledStartTime
+          .setZone('Asia/Tokyo')
+          .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
+        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.\n${video.title}\n${videoURL}`
+      }
     }
     await axios.post(this.slack_webhook_url, { text })
   }
