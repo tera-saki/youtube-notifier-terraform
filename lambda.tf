@@ -9,6 +9,30 @@ locals {
       timeout = 300
     }
   }
+
+  lambda_layer_hashes = {
+    for k, v in local.lambda_configs : k => sha256(join("", [
+      for file in ["package.json", "yarn.lock"] :
+      filesha256("lambda/${k}/${file}")
+    ]))
+  }
+
+  lambda_function_hashes = {
+    for k, v in local.lambda_configs : k => sha256(join("", concat(
+      [
+        for file in fileset("lambda/${k}/src", "**/*.js") :
+        filesha256("lambda/${k}/src/${file}")
+      ],
+      [
+        for file in fileset("lambda/${k}/config", "*.json") :
+        filesha256("lambda/${k}/config/${file}")
+      ],
+      [
+        for file in fileset("lambda/${k}/credentials", "*.json") :
+        filesha256("lambda/${k}/credentials/${file}")
+      ]
+    )))
+  }
 }
 
 resource "aws_iam_role" "lambda" {
@@ -39,11 +63,12 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 resource "terraform_data" "lambda_layer" {
   for_each = local.lambda_configs
 
+  input = {
+    zip_file = "lambda/${each.key}/dist/layer.zip"
+  }
+
   triggers_replace = {
-    hash = sha256(join("", [
-      for file in ["package.json", "yarn.lock"] :
-      filesha256("lambda/${each.key}/${file}")
-    ]))
+    hash = local.lambda_layer_hashes[each.key]
   }
 
   provisioner "local-exec" {
@@ -54,21 +79,12 @@ resource "terraform_data" "lambda_layer" {
 resource "terraform_data" "lambda_function" {
   for_each = local.lambda_configs
 
+  input = {
+    zip_file = "lambda/${each.key}/dist/function.zip"
+  }
+
   triggers_replace = {
-    hash = sha256(join("", concat(
-      [
-        for file in fileset("lambda/${each.key}/src", "**/*.js") :
-        filesha256("lambda/${each.key}/src/${file}")
-      ],
-      [
-        for file in fileset("lambda/${each.key}/config", "*.json") :
-        filesha256("lambda/${each.key}/config/${file}")
-      ],
-      [
-        for file in fileset("lambda/${each.key}/credentials", "*.json") :
-        filesha256("lambda/${each.key}/credentials/${file}")
-      ]
-    )))
+    hash = local.lambda_function_hashes[each.key]
   }
 
   provisioner "local-exec" {
@@ -79,24 +95,24 @@ resource "terraform_data" "lambda_function" {
 resource "aws_lambda_layer_version" "main" {
   for_each = local.lambda_configs
 
-  filename   = "lambda/${each.key}/dist/layer.zip"
-  layer_name = "lambda_layer_${each.key}"
+  filename         = terraform_data.lambda_layer[each.key].output.zip_file
+  layer_name       = "lambda_layer_${each.key}"
+  source_code_hash = filesha256(terraform_data.lambda_layer[each.key].output.zip_file)
 
   compatible_runtimes = ["nodejs"]
 }
-
 
 resource "aws_lambda_function" "main" {
   for_each = local.lambda_configs
 
   function_name    = each.key
-  filename         = "lambda/${each.key}/dist/function.zip"
+  filename         = terraform_data.lambda_function[each.key].output.zip_file
   role             = aws_iam_role.lambda[each.key].arn
   handler          = "src/index.handler"
   runtime          = "nodejs22.x"
   memory_size      = 256
   timeout          = each.value.timeout
-  source_code_hash = filesha256("lambda/${each.key}/dist/function.zip")
+  source_code_hash = filesha256(terraform_data.lambda_function[each.key].output.zip_file)
 
   layers = [
     aws_lambda_layer_version.main[each.key].arn
@@ -106,7 +122,6 @@ resource "aws_lambda_function" "main" {
     variables = lookup(each.value, "environment", {})
   }
 
-  # CloudWatch Logs グループの依存関係を追加
   depends_on = [aws_cloudwatch_log_group.lambda_logs]
 }
 
