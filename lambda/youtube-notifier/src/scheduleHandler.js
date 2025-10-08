@@ -102,7 +102,6 @@ async function handleSchedule() {
     for (const channelId of unsubscribedChannelIds) {
       console.log(`Channel unsubscribed: ${channelId}`)
       await unsubscribe(channelId)
-      await DynamoDBHelper.deleteItem(DYNAMODB_TABLE_NAME, { channelId })
       console.log(`Channel unsubscription requested: ${channelId}`)
       await sleep(3000)
     }

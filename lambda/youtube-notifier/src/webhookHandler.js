@@ -68,6 +68,10 @@ async function handleGet({ params }) {
         subscriptionExpiredAt,
       },
     )
+  } else {
+    await DynamoDBHelper.deleteItem(DYNAMODB_TABLE_NAME, {
+      channelId: params.channel_id,
+    })
   }
   return generateResponse(200, challenge)
 }
