@@ -57,11 +57,15 @@ async function getProcessedChannelIds() {
   )
   const watchedChannelIds = new Set(watchedChannels.map((c) => c.channelId))
 
-  const newSubscribedChannelIds =
-    subscribedChannelIds.difference(watchedChannelIds)
-  const unsubscribedChannelIds =
-    watchedChannelIds.difference(subscribedChannelIds)
-  const toBeExpiredChannelIds = watchedChannels
+  const newSubscribedChannelIds = Array.from(
+    subscribedChannelIds.difference(watchedChannelIds),
+  )
+  const unsubscribedChannelIds = Array.from(
+    watchedChannelIds.difference(subscribedChannelIds),
+  )
+  const toBeExpiredChannelIds = Array.from(
+    subscribedChannelIds.intersection(watchedChannelIds),
+  )
     .filter(
       (c) =>
         DateTime.fromISO(c.subscriptionExpiredAt) - DateTime.now() <
