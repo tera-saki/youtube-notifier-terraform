@@ -51,7 +51,7 @@ class YouTubeNotifier {
 
     let text
     if (video.liveBroadcastContent === 'none') {
-      text = `:clapper: ${video.channelTitle} uploaded a new video.\n${video.title}\n${videoURL}`
+      text = `:clapper: ${video.channelTitle} uploaded a new video.`
     } else {
       const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
@@ -61,14 +61,15 @@ class YouTubeNotifier {
         // ライブ開始でもliveBroadcastContentがupcomingの場合あり
         scheduledStartTime < DateTime.now()
       ) {
-        text = `:microphone: ${video.channelTitle} is now live!\n${video.title}\n${videoURL}`
+        text = `:microphone: ${video.channelTitle} is now live!`
       } else {
         const localeString = scheduledStartTime
           .setZone('Asia/Tokyo')
           .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
-        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.\n${video.title}\n${videoURL}`
+        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.`
       }
     }
+    text = `${text}\n${video.title}\n${videoURL}`
     await axios.post(this.slack_webhook_url, { text })
   }
 
