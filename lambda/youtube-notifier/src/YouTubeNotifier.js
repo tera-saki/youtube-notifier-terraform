@@ -38,19 +38,21 @@ class YouTubeNotifier {
   }
 
   getTimeDiffFromNow(datetime) {
-    const diff = datetime.diffNow(['days', 'hours', 'minutes']).values
-    const days = diff.days
-    const hours = diff.hours
-    const minutes = Number.parseInt(diff.minutes)
+    const { days, hours, minutes } = datetime.diffNow([
+      'days',
+      'hours',
+      'minutes',
+      'seconds',
+    ]).values
 
-    let delta = ''
-    if (days > 0) {
-      delta += `${days}d`
+    let delta
+    if (days === 0 && hours === 0) {
+      delta = `${minutes}m`
+    } else if (days === 0) {
+      delta = `${hours}h${minutes}m`
+    } else {
+      delta = `${days}d${hours}h${minutes}m`
     }
-    if (hours > 0) {
-      delta += `${hours}h`
-    }
-    delta += `${minutes}m`
     return delta
   }
 
