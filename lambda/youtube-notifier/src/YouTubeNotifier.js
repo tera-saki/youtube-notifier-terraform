@@ -45,29 +45,20 @@ class YouTubeNotifier {
   async notify(video) {
     const videoURL = `https://www.youtube.com/watch?v=${video.videoId}`
 
-    if (video.liveStreamingDetails?.actualEndTime) {
-      return // Do not notify ended live streams
-    }
-
     let text
-    if (video.liveBroadcastContent === 'none') {
+    if (!video.liveStreamingDetails) {
       text = `:clapper: ${video.channelTitle} uploaded a new video.`
+    } else if (video.liveStreamingDetails.actualEndTime) {
+      return // Do not notify ended live streams
+    } else if (video.liveStreamingDetails.actualStartTime) {
+      text = `:microphone: ${video.channelTitle} is now live!`
     } else {
-      const scheduledStartTime = DateTime.fromISO(
+      const localeString = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
       )
-      if (
-        video.liveBroadcastContent === 'live' ||
-        // ライブ開始でもliveBroadcastContentがupcomingの場合あり
-        scheduledStartTime < DateTime.now()
-      ) {
-        text = `:microphone: ${video.channelTitle} is now live!`
-      } else {
-        const localeString = scheduledStartTime
-          .setZone('Asia/Tokyo')
-          .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
-        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.`
-      }
+        .setZone('Asia/Tokyo')
+        .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
+      text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.`
     }
     text = `${text}\n${video.title}\n${videoURL}`
     await axios.post(this.slack_webhook_url, { text })
