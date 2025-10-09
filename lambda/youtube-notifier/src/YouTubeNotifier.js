@@ -37,6 +37,23 @@ class YouTubeNotifier {
     return DynamoDBHelper.updateItem(DYNAMODB_TABLE_NAME, { channelId }, status)
   }
 
+  getTimeDiffFromNow(datetime) {
+    const diff = datetime.diffNow(['days', 'hours', 'minutes']).values
+    const days = diff.days
+    const hours = diff.hours
+    const minutes = Number.parseInt(diff.minutes)
+
+    let delta = ''
+    if (days > 0) {
+      delta += `${days}d`
+    }
+    if (hours > 0) {
+      delta += `${hours}h`
+    }
+    delta += `${minutes}m`
+    return delta
+  }
+
   validateVideo(video) {
     const exclude_words = this.config.exclude_words ?? []
     return exclude_words.every((w) => !video.title.match(w))
@@ -53,12 +70,14 @@ class YouTubeNotifier {
     } else if (video.liveStreamingDetails.actualStartTime) {
       text = `:microphone: ${video.channelTitle} is now live!`
     } else {
-      const localeString = DateTime.fromISO(
+      const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
       )
+      const localeString = scheduledStartTime
         .setZone('Asia/Tokyo')
         .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
-      text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString}.`
+      const timeDelta = this.getTimeDiffFromNow(scheduledStartTime)
+      text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDelta} later).`
     }
     text = `${text}\n${video.title}\n${videoURL}`
     await axios.post(this.slack_webhook_url, { text })
