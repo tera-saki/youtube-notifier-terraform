@@ -6,7 +6,8 @@ locals {
         DYNAMODB_TABLE_NAME = aws_dynamodb_table.youtube_channel_status.name
         SLACK_WEBHOOK_URL   = var.slack_webhook_url
       }
-      timeout = 300
+      memory_size = 256
+      timeout     = 300
     }
   }
 
@@ -110,7 +111,7 @@ resource "aws_lambda_function" "main" {
   role             = aws_iam_role.lambda[each.key].arn
   handler          = "src/index.handler"
   runtime          = "nodejs22.x"
-  memory_size      = 256
+  memory_size      = each.value.memory_size
   timeout          = each.value.timeout
   source_code_hash = filesha256(terraform_data.lambda_function[each.key].output.zip_file)
 

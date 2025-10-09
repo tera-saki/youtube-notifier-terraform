@@ -1,58 +1,77 @@
-locals {
-  log_levels = {
-    error = {
-      pattern     = "ERROR"
-      threshold   = 1
-      description = "Critical errors in youtube-notifier Lambda"
-    },
-    warn = {
-      pattern     = "WARN"
-      threshold   = 1
-      description = "Warning logs in youtube-notifier Lambda"
-    }
-  }
+resource "aws_cloudwatch_log_metric_filter" "log_filters_error" {
+  for_each = local.lambda_configs
 
-  lambda_name = "youtube-notifier"
-}
-
-resource "aws_cloudwatch_log_metric_filter" "log_filters" {
-  for_each = local.log_levels
-
-  name           = "${local.lambda_name}-${each.key}-filter"
-  pattern        = each.value.pattern
-  log_group_name = aws_cloudwatch_log_group.lambda_logs[local.lambda_name].name
+  name           = "${each.key}-error-filter"
+  pattern        = "ERROR"
+  log_group_name = aws_cloudwatch_log_group.lambda_logs[each.key].name
 
   metric_transformation {
-    name      = each.key
-    namespace = "YouTubeNotifier"
+    name      = "error"
+    namespace = each.key
     value     = "1"
   }
 }
 
-resource "aws_cloudwatch_metric_alarm" "log_alarms" {
-  for_each = local.log_levels
+resource "aws_cloudwatch_log_metric_filter" "log_filters_warn" {
+  for_each = local.lambda_configs
 
-  alarm_name          = "${local.lambda_name}-${each.key}-alarm"
+  name           = "${each.key}-warn-filter"
+  pattern        = "WARN"
+  log_group_name = aws_cloudwatch_log_group.lambda_logs[each.key].name
+
+  metric_transformation {
+    name      = "warn"
+    namespace = each.key
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "log_alarms_error" {
+  for_each = local.lambda_configs
+
+  alarm_name          = "${each.key}-error-alarm"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
-  metric_name         = each.key
-  namespace           = "YouTubeNotifier"
+  metric_name         = "error"
+  namespace           = each.key
   period              = 300
   statistic           = "Sum"
-  threshold           = each.value.threshold
-  alarm_description   = each.value.description
+  threshold           = 1
+  alarm_description   = "Critical errors in ${each.key} Lambda function"
   treat_missing_data  = "notBreaching"
 
-  alarm_actions = [aws_sns_topic.alerts.arn]
-  ok_actions    = [aws_sns_topic.alerts.arn]
+  alarm_actions = [aws_sns_topic.alerts[each.key].arn]
+  ok_actions    = [aws_sns_topic.alerts[each.key].arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "log_alarms_warn" {
+  for_each = local.lambda_configs
+
+  alarm_name          = "${each.key}-warn-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "warn"
+  namespace           = each.key
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 1
+  alarm_description   = "Critical warnings in ${each.key} Lambda function"
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.alerts[each.key].arn]
+  ok_actions    = [aws_sns_topic.alerts[each.key].arn]
 }
 
 resource "aws_sns_topic" "alerts" {
-  name = "youtube-notifier-alerts"
+  for_each = local.lambda_configs
+
+  name = "${each.key}-alerts"
 }
 
 resource "aws_sns_topic_subscription" "email" {
-  topic_arn = aws_sns_topic.alerts.arn
+  for_each = aws_sns_topic.alerts
+
+  topic_arn = each.value.arn
   protocol  = "email"
   endpoint  = var.alert_email
 }

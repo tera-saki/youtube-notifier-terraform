@@ -2,4 +2,3 @@ credentials/*
 dist
 node_modules
 config.json
-terraform.tfvars

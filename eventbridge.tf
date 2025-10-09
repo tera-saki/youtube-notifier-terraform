@@ -1,9 +1,9 @@
-# EventBridge Scheduler for YouTube Notifier Lambda
 resource "aws_scheduler_schedule" "youtube_notifier" {
   name                = "youtube-notifier-scheduler"
   schedule_expression = "rate(1 hours)"
   flexible_time_window {
-    mode = "OFF"
+    mode                      = "FLEXIBLE"
+    maximum_window_in_minutes = 10
   }
 
   target {
@@ -20,7 +20,6 @@ resource "aws_scheduler_schedule" "youtube_notifier" {
   }
 }
 
-# IAM Role for EventBridge Scheduler
 resource "aws_iam_role" "scheduler_role" {
   name = "youtube_notifier_scheduler_role"
 
@@ -38,7 +37,6 @@ resource "aws_iam_role" "scheduler_role" {
   })
 }
 
-# IAM Policy for EventBridge Scheduler to invoke Lambda
 resource "aws_iam_policy" "scheduler_policy" {
   name        = "youtube_notifier_scheduler_policy"
   description = "Allow EventBridge Scheduler to invoke YouTube Notifier Lambda"
@@ -55,9 +53,7 @@ resource "aws_iam_policy" "scheduler_policy" {
   })
 }
 
-# Attach the policy to the role
 resource "aws_iam_role_policy_attachment" "scheduler_policy_attachment" {
   role       = aws_iam_role.scheduler_role.name
   policy_arn = aws_iam_policy.scheduler_policy.arn
 }
-
