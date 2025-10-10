@@ -33,6 +33,14 @@ function validateTopic(topic) {
   return regex.test(topic)
 }
 
+function validateLink(link) {
+  if (typeof link !== 'string') {
+    return false
+  }
+  const regex = /^https:\/\/www\.youtube\.com\//
+  return regex.test(link)
+}
+
 async function handleGet({ params }) {
   const mode = params['hub.mode']
   const topic = params['hub.topic']
@@ -94,7 +102,7 @@ async function handlePost({ params, body }) {
   const entry = parsed.feed.entry
   const link = entry.link['@_href']
   const publishedAt = entry.published
-  if (!link.test(/^https:\/\/www\.youtube\.com\//)) {
+  if (!validateLink(link)) {
     return generateResponse(400, 'Invalid video link')
   }
   if (!DateTime.fromISO(publishedAt).isValid) {
