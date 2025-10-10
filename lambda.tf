@@ -9,6 +9,13 @@ locals {
       memory_size = 256
       timeout     = 300
     }
+    "ip-range-fetcher" = {
+      environment = {
+        S3_BUCKET_NAME = aws_s3_bucket.google_ip_ranges.bucket
+      }
+      memory_size = 128
+      timeout     = 10
+    }
   }
 
   lambda_layer_hashes = {

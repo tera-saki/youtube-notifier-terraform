@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu -o pipefail
+set -eu
 
 CURRENT_DIR=$(realpath "$(dirname "$0")")
 LAMBDA_BASE_DIR=$(dirname "$CURRENT_DIR")
