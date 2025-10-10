@@ -90,18 +90,15 @@ async function handlePost({ params, body }) {
   console.log('Params:', params)
   console.log('Body:', body)
 
-  const channelId = params.channel_id
-  if (!channelId) {
-    return generateResponse(400, 'Missing channel_id parameter')
-  }
-  if (!validateChannelId(channelId)) {
-    return generateResponse(400, 'Invalid channel_id parameter')
-  }
-
   const parsed = new XMLParser({ ignoreAttributes: false }).parse(body)
   const entry = parsed.feed.entry
+  const channelId = entry['yt:channelId']
   const link = entry.link['@_href']
   const publishedAt = entry.published
+
+  if (!validateChannelId(channelId)) {
+    return generateResponse(400, 'Invalid channel ID')
+  }
   if (!validateLink(link)) {
     return generateResponse(400, 'Invalid video link')
   }
