@@ -1,11 +1,12 @@
 const { DateTime } = require('luxon')
+const { XMLParser } = require('fast-xml-parser')
 
 const DynamoDBHelper = require('./DynamoDBHelper')
 const YoutubeNotifier = require('./YouTubeNotifier')
 const {
   credentialsPath,
   tokenPath,
-  configPath,
+  config,
   DYNAMODB_TABLE_NAME,
 } = require('./constants')
 const { generateResponse } = require('./utils')
@@ -13,7 +14,6 @@ const { generateResponse } = require('./utils')
 const notifier = new YoutubeNotifier({
   credentialsPath,
   tokenPath,
-  configPath,
 })
 
 function validateChannelId(channelId) {
@@ -90,7 +90,28 @@ async function handlePost({ params, body }) {
     return generateResponse(400, 'Invalid channel_id parameter')
   }
 
-  await notifier.run(channelId)
+  const parsed = new XMLParser().parse(body)
+  const entry = parsed.feed.entry
+  const link = entry.link['@_href']
+  const publishedAt = entry.published
+  if (!link.test(/^https:\/\/www\.youtube\.com\//)) {
+    return generateResponse(400, 'Invalid video link')
+  }
+  if (!DateTime.fromISO(publishedAt).isValid) {
+    return generateResponse(400, 'Invalid published time')
+  }
+
+  if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
+    console.log('Excluded shorts video:', link)
+  } else {
+    await notifier.run(channelId)
+  }
+
+  await DynamoDBHelper.updateItem(
+    DYNAMODB_TABLE_NAME,
+    { channelId },
+    { lastPublishedAt: publishedAt },
+  )
 
   return generateResponse(204)
 }

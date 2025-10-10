@@ -63,13 +63,13 @@ flowchart TD
 
 - `lambda/youtube-notifier/config/config.json` を作成
 
-  - `exclude_words` (`list`): 動画タイトルに含まれていた場合に、通知対象から除外するワード一覧
+  - `exclude_shorts` (`boolean`): true を指定すると、shorts 動画を通知しない
 
   （例）
 
   ```json
   {
-    "exclude_words": ["#shorts"]
+    "exclude_shorts": true
   }
   ```
 

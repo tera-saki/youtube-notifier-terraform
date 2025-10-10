@@ -9,32 +9,24 @@ const { DYNAMODB_TABLE_NAME, SLACK_WEBHOOK_URL } = require('./constants')
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
 
 class YouTubeNotifier {
-  constructor({ credentialsPath, tokenPath, configPath }) {
+  constructor({ credentialsPath, tokenPath }) {
     if (!fs.existsSync(credentialsPath)) {
       throw new Error(`Credential file not found: ${credentialsPath}`)
     }
     if (!fs.existsSync(tokenPath)) {
       throw new Error(`Token file not found: ${tokenPath}`)
     }
-    if (!fs.existsSync(configPath)) {
-      throw new Error(`Config file not found: ${configPath}`)
-    }
 
     this.youtubeFetcher = new YouTubeChannelFetcher({
       credentialsPath,
       tokenPath,
     })
-    this.config = JSON.parse(fs.readFileSync(configPath, { encoding: 'utf-8' }))
 
     this.slack_webhook_url = SLACK_WEBHOOK_URL
   }
 
   async getChannelStatus(channelId) {
     return DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, { channelId })
-  }
-
-  async updateChannelStatus(channelId, status) {
-    return DynamoDBHelper.updateItem(DYNAMODB_TABLE_NAME, { channelId }, status)
   }
 
   getTimeDiffFromNow(datetime) {
@@ -54,11 +46,6 @@ class YouTubeNotifier {
       delta = `${days}d${hours}h${minutes}m`
     }
     return delta
-  }
-
-  validateVideo(video) {
-    const exclude_words = this.config.exclude_words ?? []
-    return exclude_words.every((w) => !video.title.match(w))
   }
 
   async notify(video) {
@@ -100,14 +87,8 @@ class YouTubeNotifier {
     }
 
     for (const video of videos) {
-      if (this.validateVideo(video)) {
-        await this.notify(video)
-      }
+      await this.notify(video)
     }
-    // update lastPublishedAt even if the video is excluded not to call videos.list API again
-    await this.updateChannelStatus(channelId, {
-      lastPublishedAt: videos[0].publishedAt,
-    })
   }
 }
 

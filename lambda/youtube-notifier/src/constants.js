@@ -1,9 +1,12 @@
+const fs = require('node:fs')
 const path = require('node:path')
 
 const rootDir = path.join(__dirname, '..')
 const credentialsPath = path.join(rootDir, 'credentials', 'credentials.json')
 const tokenPath = path.join(rootDir, 'credentials', 'token.json')
 const configPath = path.join(rootDir, 'config', 'config.json')
+
+const config = JSON.parse(fs.readFileSync(configPath, { encoding: 'utf-8' }))
 
 // environment variables
 const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME
@@ -24,7 +27,7 @@ if (!APIGATEWAY_ENDPOINT) {
 module.exports = {
   credentialsPath,
   tokenPath,
-  configPath,
+  config,
   DYNAMODB_TABLE_NAME,
   SLACK_WEBHOOK_URL,
   APIGATEWAY_ENDPOINT,
