@@ -3,8 +3,7 @@ const fs = require('node:fs')
 const axios = require('axios')
 const { DateTime } = require('luxon')
 
-const DynamoDBHelper = require('./DynamoDBHelper')
-const { DYNAMODB_TABLE_NAME, SLACK_WEBHOOK_URL } = require('./constants')
+const { SLACK_WEBHOOK_URL } = require('./constants')
 
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
 
@@ -23,10 +22,6 @@ class YouTubeNotifier {
     })
 
     this.slack_webhook_url = SLACK_WEBHOOK_URL
-  }
-
-  async getChannelStatus(channelId) {
-    return DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, { channelId })
   }
 
   getTimeDiffFromNow(datetime) {
@@ -72,19 +67,8 @@ class YouTubeNotifier {
     await axios.post(this.slack_webhook_url, { text })
   }
 
-  async run(channelId) {
-    const channelStatus = await this.getChannelStatus(channelId)
-
-    const start = channelStatus?.lastPublishedAt
-      ? DateTime.fromISO(channelStatus.lastPublishedAt)
-          .plus({ seconds: 1 })
-          .toISO()
-      : DateTime.now().minus({ days: 1 }).toISO()
+  async run(channelId, start) {
     const videos = await this.youtubeFetcher.getNewVideos(channelId, start)
-
-    if (videos.length === 0) {
-      return
-    }
 
     for (const video of videos) {
       await this.notify(video)

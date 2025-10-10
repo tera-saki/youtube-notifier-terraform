@@ -104,7 +104,15 @@ async function handlePost({ params, body }) {
   if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
     console.log('Excluded shorts video:', link)
   } else {
-    await notifier.run(channelId)
+    const channelStatus = await DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, {
+      channelId,
+    })
+    const start = channelStatus?.lastPublishedAt
+      ? DateTime.fromISO(channelStatus.lastPublishedAt)
+          .plus({ seconds: 1 })
+          .toISO()
+      : DateTime.now().minus({ days: 1 }).toISO()
+    await notifier.run(channelId, start)
   }
 
   await DynamoDBHelper.updateItem(
