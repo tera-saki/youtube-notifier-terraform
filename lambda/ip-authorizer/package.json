@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.907.0",
+    "ip": "^2.0.1"
+  }
+}

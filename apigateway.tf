@@ -42,16 +42,72 @@ resource "aws_apigatewayv2_integration" "youtube_webhook" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_authorizer" "ip_authorizer" {
+  api_id          = aws_apigatewayv2_api.youtube_webhook.id
+  authorizer_type = "REQUEST"
+  name            = "google-ip-authorizer"
+
+  authorizer_uri                    = aws_lambda_function.main["ip-authorizer"].invoke_arn
+  authorizer_credentials_arn        = aws_iam_role.authorizer_invocation_role.arn
+  authorizer_payload_format_version = "2.0"
+  authorizer_result_ttl_in_seconds  = 3600
+  enable_simple_responses           = true
+  identity_sources                  = ["$context.identity.sourceIp"]
+}
+
+resource "aws_iam_role" "authorizer_invocation_role" {
+  name = "api_gateway_auth_invocation"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "apigateway.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "authorizer_invocation_policy" {
+  name = "api_gateway_auth_invocation_policy"
+  role = aws_iam_role.authorizer_invocation_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action   = "lambda:InvokeFunction"
+      Effect   = "Allow"
+      Resource = aws_lambda_function.main["ip-authorizer"].arn
+    }]
+  })
+}
+
+resource "aws_lambda_permission" "authorizer" {
+  statement_id  = "AllowAPIGatewayInvokeAuthorizer"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.main["ip-authorizer"].function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.youtube_webhook.execution_arn}/authorizers/${aws_apigatewayv2_authorizer.ip_authorizer.id}"
+}
+
 resource "aws_apigatewayv2_route" "youtube_webhook_get" {
   api_id    = aws_apigatewayv2_api.youtube_webhook.id
   route_key = "GET /callback"
   target    = "integrations/${aws_apigatewayv2_integration.youtube_webhook.id}"
+
+  authorizer_id      = aws_apigatewayv2_authorizer.ip_authorizer.id
+  authorization_type = "CUSTOM"
 }
 
 resource "aws_apigatewayv2_route" "youtube_webhook_post" {
   api_id    = aws_apigatewayv2_api.youtube_webhook.id
   route_key = "POST /callback"
   target    = "integrations/${aws_apigatewayv2_integration.youtube_webhook.id}"
+
+  authorizer_id      = aws_apigatewayv2_authorizer.ip_authorizer.id
+  authorization_type = "CUSTOM"
 }
 
 resource "aws_cloudwatch_log_group" "apigw" {
@@ -65,4 +121,9 @@ resource "aws_lambda_permission" "apigw" {
   function_name = aws_lambda_function.main["youtube-notifier"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.youtube_webhook.execution_arn}/*/*"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_s3_access_authorizer" {
+  role       = aws_iam_role.lambda["ip-authorizer"].name
+  policy_arn = aws_iam_policy.s3_access.arn
 }

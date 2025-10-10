@@ -24,6 +24,7 @@ resource "aws_iam_policy" "s3_access" {
         Effect = "Allow"
         Action = [
           "s3:PutObject",
+          "s3:GetObject",
           "s3:ListBucket"
         ]
         Resource = [
@@ -35,7 +36,13 @@ resource "aws_iam_policy" "s3_access" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_s3_access" {
+resource "aws_iam_role_policy_attachment" "lambda_s3_access_ip_range_fetcher" {
   role       = aws_iam_role.lambda["ip-range-fetcher"].name
+  policy_arn = aws_iam_policy.s3_access.arn
+}
+
+
+resource "aws_iam_role_policy_attachment" "lambda_s3_access_ip_authorizer" {
+  role       = aws_iam_role.lambda["ip-authorizer"].name
   policy_arn = aws_iam_policy.s3_access.arn
 }
