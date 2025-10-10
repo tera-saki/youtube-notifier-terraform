@@ -90,7 +90,7 @@ async function handlePost({ params, body }) {
     return generateResponse(400, 'Invalid channel_id parameter')
   }
 
-  const parsed = new XMLParser().parse(body)
+  const parsed = new XMLParser({ ignoreAttributes: false }).parse(body)
   const entry = parsed.feed.entry
   const link = entry.link['@_href']
   const publishedAt = entry.published
