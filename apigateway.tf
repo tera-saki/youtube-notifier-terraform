@@ -50,7 +50,7 @@ resource "aws_apigatewayv2_authorizer" "ip_authorizer" {
   authorizer_uri                    = aws_lambda_function.main["ip-authorizer"].invoke_arn
   authorizer_credentials_arn        = aws_iam_role.authorizer_invocation_role.arn
   authorizer_payload_format_version = "2.0"
-  authorizer_result_ttl_in_seconds  = 3600
+  authorizer_result_ttl_in_seconds  = 600
   enable_simple_responses           = true
   identity_sources                  = ["$context.identity.sourceIp"]
 }
