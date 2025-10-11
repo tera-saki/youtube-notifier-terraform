@@ -15,12 +15,17 @@ const youtubeFetcher = new YouTubeChannelFetcher({ credentialsPath, tokenPath })
 
 const hubUrl = 'https://pubsubhubbub.appspot.com/subscribe'
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function sleepWithExponentialBackoff(
+  attempt,
+  baseDelayMs = 3000,
+  maxDelayMs = 30000,
+) {
+  const delay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs)
+  return new Promise((resolve) => setTimeout(resolve, delay))
 }
 
-function subscribe(channelId) {
-  return axios.post(
+async function subscribe(channelId) {
+  await axios.post(
     hubUrl,
     {
       'hub.mode': 'subscribe',
@@ -30,10 +35,11 @@ function subscribe(channelId) {
     },
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
+  console.log(`Subscribed to channel ${channelId}`)
 }
 
-function unsubscribe(channelId) {
-  return axios.post(
+async function unsubscribe(channelId) {
+  await axios.post(
     hubUrl,
     {
       'hub.mode': 'unsubscribe',
@@ -42,6 +48,7 @@ function unsubscribe(channelId) {
     },
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
+  console.log(`Unsubscribed from channel ${channelId}`)
 }
 
 // Processes channels in the following priority order:
@@ -86,31 +93,36 @@ async function handleSchedule() {
     toBeExpiredChannelIds,
   } = await getProcessedChannelIds()
 
-  try {
-    for (const channelId of newSubscribedChannelIds) {
-      console.log(`New subscribed channel found: ${channelId}`)
-      await subscribe(channelId)
-      console.log(`Channel subscription requested: ${channelId}`)
-      await sleep(3000)
+  const tasks = [
+    [...newSubscribedChannelIds, ...toBeExpiredChannelIds].map((id) => [
+      subscribe,
+      id,
+    ]),
+    unsubscribedChannelIds.map((id) => [unsubscribe, id]),
+  ].flat()
+
+  const maxAttempts = 3
+  for (const [func, ...args] of tasks) {
+    let attempt = 0
+    let succeeded = false
+    while (!succeeded) {
+      try {
+        await func(...args)
+        succeeded = true
+      } catch (e) {
+        if (e instanceof axios.AxiosError && e.status == 429) {
+          if (++attempt === maxAttempts) {
+            console.log('Max attempts reached. Wait for next schedule.')
+            return generateResponse(200)
+          }
+          console.log(`Throttled, retrying... (attempts: ${attempt})`)
+        } else {
+          throw e
+        }
+      } finally {
+        await sleepWithExponentialBackoff(attempt)
+      }
     }
-    for (const channelId of toBeExpiredChannelIds) {
-      console.log(`Channel subscription is about to expire: ${channelId}`)
-      await subscribe(channelId)
-      console.log(`Channel subscription renewal requested: ${channelId}`)
-      await sleep(3000)
-    }
-    for (const channelId of unsubscribedChannelIds) {
-      console.log(`Channel unsubscribed: ${channelId}`)
-      await unsubscribe(channelId)
-      console.log(`Channel unsubscription requested: ${channelId}`)
-      await sleep(3000)
-    }
-  } catch (e) {
-    if (e instanceof axios.AxiosError && e.status == 429) {
-      console.log('Throttled, wait for next invocation')
-      return generateResponse(200)
-    }
-    throw e
   }
 
   return generateResponse(200)

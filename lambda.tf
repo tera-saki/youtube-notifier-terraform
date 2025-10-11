@@ -7,7 +7,7 @@ locals {
         SLACK_WEBHOOK_URL   = var.slack_webhook_url
       }
       memory_size = 256
-      timeout     = 300
+      timeout     = 600
     }
     "ip-range-fetcher" = {
       environment = {
