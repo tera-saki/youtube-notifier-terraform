@@ -46,7 +46,9 @@ function parseXML(xmlString) {
     const parsed = new XMLParser({ ignoreAttributes: false }).parse(xmlString)
     const entry = parsed.feed.entry
     const channelId = entry['yt:channelId']
-    const link = entry.link['@_href']
+    const link = Array.isArray(entry.link)
+      ? entry.link[0]['@_href']
+      : entry.link['@_href']
     const updatedAt = entry.updated
 
     if (!validateChannelId(channelId)) {
