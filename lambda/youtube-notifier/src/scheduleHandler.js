@@ -59,6 +59,10 @@ async function getProcessedChannelIds() {
   const subscribedChannels = await youtubeFetcher.getSubscribedChannels()
   const watchedChannels = await DynamoDBHelper.listItems(DYNAMODB_TABLE_NAME)
 
+  const subscriptionExpiredAt = Object.fromEntries(
+    watchedChannels.map((c) => [c.channelId, c.subscriptionExpiredAt]),
+  )
+
   const subscribedChannelIds = new Set(
     subscribedChannels.map((c) => c.channelId),
   )
@@ -72,13 +76,11 @@ async function getProcessedChannelIds() {
   )
   const toBeExpiredChannelIds = Array.from(
     subscribedChannelIds.intersection(watchedChannelIds),
+  ).filter(
+    (id) =>
+      DateTime.fromISO(subscriptionExpiredAt[id]) - DateTime.now() <
+      Duration.fromObject({ days: 3 }),
   )
-    .filter(
-      (c) =>
-        DateTime.fromISO(c.subscriptionExpiredAt) - DateTime.now() <
-        Duration.fromObject({ days: 3 }),
-    )
-    .map((c) => c.channelId)
   return {
     newSubscribedChannelIds,
     unsubscribedChannelIds,
