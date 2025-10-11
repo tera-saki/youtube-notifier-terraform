@@ -120,12 +120,12 @@ async function handlePost({ params, body }) {
   }
   const { channelId, link, updatedAt } = parsed
 
+  const channelStatus = await DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, {
+    channelId,
+  })
   if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
     console.log('Excluded shorts video:', link)
   } else {
-    const channelStatus = await DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, {
-      channelId,
-    })
     const start = channelStatus?.lastUpdatedAt
       ? DateTime.fromISO(channelStatus.lastUpdatedAt)
           .plus({ seconds: 1 })
@@ -134,12 +134,16 @@ async function handlePost({ params, body }) {
     await notifier.run(channelId, start)
   }
 
-  await DynamoDBHelper.updateItem(
-    DYNAMODB_TABLE_NAME,
-    { channelId },
-    { lastUpdatedAt: updatedAt },
-  )
-
+  if (
+    !channelStatus?.lastUpdatedAt ||
+    channelStatus.lastUpdatedAt < updatedAt
+  ) {
+    await DynamoDBHelper.updateItem(
+      DYNAMODB_TABLE_NAME,
+      { channelId },
+      { lastUpdatedAt: updatedAt },
+    )
+  }
   return generateResponse(204)
 }
 
