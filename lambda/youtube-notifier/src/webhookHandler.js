@@ -47,7 +47,7 @@ function parseXML(xmlString) {
     const entry = parsed.feed.entry
     const channelId = entry['yt:channelId']
     const link = entry.link['@_href']
-    const publishedAt = entry.published
+    const updatedAt = entry.updated
 
     if (!validateChannelId(channelId)) {
       throw new Error('Invalid channel ID')
@@ -55,10 +55,10 @@ function parseXML(xmlString) {
     if (!validateLink(link)) {
       throw new Error('Invalid video link')
     }
-    if (!DateTime.fromISO(publishedAt).isValid) {
-      throw new Error('Invalid published time')
+    if (!DateTime.fromISO(updatedAt).isValid) {
+      throw new Error('Invalid updated time')
     }
-    return { channelId, link, publishedAt }
+    return { channelId, link, updatedAt }
   } catch (e) {
     console.warn('Error parsing XML:', e)
     return null
@@ -118,7 +118,7 @@ async function handlePost({ params, body }) {
   if (!parsed) {
     return generateResponse(400, 'Invalid XML body')
   }
-  const { channelId, link, publishedAt } = parsed
+  const { channelId, link, updatedAt } = parsed
 
   if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
     console.log('Excluded shorts video:', link)
@@ -126,8 +126,8 @@ async function handlePost({ params, body }) {
     const channelStatus = await DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, {
       channelId,
     })
-    const start = channelStatus?.lastPublishedAt
-      ? DateTime.fromISO(channelStatus.lastPublishedAt)
+    const start = channelStatus?.lastUpdatedAt
+      ? DateTime.fromISO(channelStatus.lastUpdatedAt)
           .plus({ seconds: 1 })
           .toISO()
       : DateTime.now().minus({ days: 1 }).toISO()
@@ -137,7 +137,7 @@ async function handlePost({ params, body }) {
   await DynamoDBHelper.updateItem(
     DYNAMODB_TABLE_NAME,
     { channelId },
-    { lastPublishedAt: publishedAt },
+    { lastUpdatedAt: updatedAt },
   )
 
   return generateResponse(204)
