@@ -51,10 +51,6 @@ async function unsubscribe(channelId) {
   console.log(`Send unsubscription request for channel ${channelId}`)
 }
 
-// Processes channels in the following priority order:
-// 1. Newly subscribed channels that need initial webhook setup
-// 2. Channels with subscriptions about to expire that need renewal
-// 3. Channels that have been unsubscribed and need webhook removal
 async function getProcessedChannelIds() {
   const subscribedChannels = await youtubeFetcher.getSubscribedChannels()
   const watchedChannels = await DynamoDBHelper.listItems(DYNAMODB_TABLE_NAME)
@@ -88,6 +84,10 @@ async function getProcessedChannelIds() {
   }
 }
 
+// Processes channels in the following priority order:
+// 1. Newly subscribed channels that need initial webhook setup
+// 2. Channels with subscriptions about to expire that need renewal
+// 3. Channels that have been unsubscribed and need webhook removal
 async function handleSchedule() {
   const {
     newSubscribedChannelIds,
