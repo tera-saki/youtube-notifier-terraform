@@ -65,6 +65,18 @@ function parseXML(xmlString) {
   }
 }
 
+async function getChannelStatus(channelId) {
+  return DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, { channelId })
+}
+
+async function updateChannelStatus(channelId, props) {
+  await DynamoDBHelper.updateItem(DYNAMODB_TABLE_NAME, { channelId }, props)
+}
+
+async function deleteChannelStatus(channelId) {
+  await DynamoDBHelper.deleteItem(DYNAMODB_TABLE_NAME, { channelId })
+}
+
 async function handleGet({ params }) {
   const mode = params['hub.mode']
   const topic = params['hub.topic']
@@ -90,20 +102,9 @@ async function handleGet({ params }) {
     const subscriptionExpiredAt = DateTime.now()
       .plus({ seconds: Number.parseInt(lease_seconds, 10) })
       .toISO()
-
-    await DynamoDBHelper.updateItem(
-      DYNAMODB_TABLE_NAME,
-      {
-        channelId: params.channel_id,
-      },
-      {
-        subscriptionExpiredAt,
-      },
-    )
+    await updateChannelStatus(params.channel_id, { subscriptionExpiredAt })
   } else {
-    await DynamoDBHelper.deleteItem(DYNAMODB_TABLE_NAME, {
-      channelId: params.channel_id,
-    })
+    await deleteChannelStatus(params.channel_id)
   }
   return generateResponse(200, challenge)
 }
@@ -120,9 +121,7 @@ async function handlePost({ params, body }) {
   }
   const { channelId, link, updatedAt } = parsed
 
-  const channelStatus = await DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, {
-    channelId,
-  })
+  const channelStatus = await getChannelStatus(channelId)
   if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
     console.log('Excluded shorts video:', link)
   } else {
@@ -138,11 +137,7 @@ async function handlePost({ params, body }) {
     !channelStatus?.lastUpdatedAt ||
     channelStatus.lastUpdatedAt < updatedAt
   ) {
-    await DynamoDBHelper.updateItem(
-      DYNAMODB_TABLE_NAME,
-      { channelId },
-      { lastUpdatedAt: updatedAt },
-    )
+    await updateChannelStatus(channelId, { lastUpdatedAt: updatedAt })
   }
   return generateResponse(204)
 }
