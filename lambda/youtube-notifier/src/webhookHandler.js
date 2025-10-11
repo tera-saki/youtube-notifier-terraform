@@ -103,8 +103,10 @@ async function handleGet({ params }) {
       .plus({ seconds: Number.parseInt(lease_seconds, 10) })
       .toISO()
     await updateChannelStatus(params.channel_id, { subscriptionExpiredAt })
+    console.log(`Subscribed to channel ${params.channel_id}`)
   } else {
     await deleteChannelStatus(params.channel_id)
+    console.log(`Unsubscribed from channel ${params.channel_id}`)
   }
   return generateResponse(200, challenge)
 }

@@ -35,7 +35,7 @@ async function subscribe(channelId) {
     },
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
-  console.log(`Subscribed to channel ${channelId}`)
+  console.log(`Send subscription request for channel ${channelId}`)
 }
 
 async function unsubscribe(channelId) {
@@ -48,7 +48,7 @@ async function unsubscribe(channelId) {
     },
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
-  console.log(`Unsubscribed from channel ${channelId}`)
+  console.log(`Send unsubscription request for channel ${channelId}`)
 }
 
 // Processes channels in the following priority order:
