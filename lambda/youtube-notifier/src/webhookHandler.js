@@ -41,6 +41,30 @@ function validateLink(link) {
   return regex.test(link)
 }
 
+function parseXML(xmlString) {
+  try {
+    const parsed = new XMLParser({ ignoreAttributes: false }).parse(xmlString)
+    const entry = parsed.feed.entry
+    const channelId = entry['yt:channelId']
+    const link = entry.link['@_href']
+    const publishedAt = entry.published
+
+    if (!validateChannelId(channelId)) {
+      throw new Error('Invalid channel ID')
+    }
+    if (!validateLink(link)) {
+      throw new Error('Invalid video link')
+    }
+    if (!DateTime.fromISO(publishedAt).isValid) {
+      throw new Error('Invalid published time')
+    }
+    return { channelId, link, publishedAt }
+  } catch (e) {
+    console.warn('Error parsing XML:', e)
+    return null
+  }
+}
+
 async function handleGet({ params }) {
   const mode = params['hub.mode']
   const topic = params['hub.topic']
@@ -90,21 +114,11 @@ async function handlePost({ params, body }) {
   console.log('Params:', params)
   console.log('Body:', body)
 
-  const parsed = new XMLParser({ ignoreAttributes: false }).parse(body)
-  const entry = parsed.feed.entry
-  const channelId = entry['yt:channelId']
-  const link = entry.link['@_href']
-  const publishedAt = entry.published
-
-  if (!validateChannelId(channelId)) {
-    return generateResponse(400, 'Invalid channel ID')
+  const parsed = parseXML(body)
+  if (!parsed) {
+    return generateResponse(400, 'Invalid XML body')
   }
-  if (!validateLink(link)) {
-    return generateResponse(400, 'Invalid video link')
-  }
-  if (!DateTime.fromISO(publishedAt).isValid) {
-    return generateResponse(400, 'Invalid published time')
-  }
+  const { channelId, link, publishedAt } = parsed
 
   if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
     console.log('Excluded shorts video:', link)
