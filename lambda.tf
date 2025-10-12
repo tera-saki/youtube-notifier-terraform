@@ -5,6 +5,7 @@ locals {
         APIGATEWAY_ENDPOINT = aws_apigatewayv2_api.youtube_webhook.api_endpoint
         DYNAMODB_TABLE_NAME = aws_dynamodb_table.youtube_channel_status.name
         SLACK_WEBHOOK_URL   = var.slack_webhook_url
+        HUB_SECRET_NAME     = aws_ssm_parameter.hub_secret.name
       }
       memory_size = 256
       timeout     = 600
@@ -145,4 +146,42 @@ resource "aws_iam_role_policy_attachment" "lambda" {
 
   role       = aws_iam_role.lambda[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_policy" "ssm_access" {
+  name        = "lambda_ssm_parameter_access"
+  description = "Allow Lambda function to read SSM parameters"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = [
+          aws_ssm_parameter.hub_secret.arn
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${local.region}.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_ssm_access" {
+  role       = aws_iam_role.lambda["youtube-notifier"].name
+  policy_arn = aws_iam_policy.ssm_access.arn
 }

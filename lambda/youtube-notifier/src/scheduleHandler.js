@@ -9,7 +9,7 @@ const {
   APIGATEWAY_ENDPOINT,
   DYNAMODB_TABLE_NAME,
 } = require('./constants')
-const { generateResponse } = require('./utils')
+const { getHubSecret, generateResponse } = require('./utils')
 
 const youtubeFetcher = new YouTubeChannelFetcher({ credentialsPath, tokenPath })
 
@@ -24,7 +24,7 @@ function sleepWithExponentialBackoff(
   return new Promise((resolve) => setTimeout(resolve, delay))
 }
 
-async function subscribe(channelId) {
+async function subscribe(channelId, hubSecret) {
   await axios.post(
     hubUrl,
     {
@@ -32,19 +32,21 @@ async function subscribe(channelId) {
       'hub.topic': `https://www.youtube.com/xml/feeds/videos.xml?channel_id=${channelId}`,
       'hub.callback': `${APIGATEWAY_ENDPOINT}/callback?channel_id=${channelId}`,
       'hub.lease_seconds': 864000, // 10 days
+      'hub.secret': hubSecret,
     },
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
   console.log(`Send subscription request for channel ${channelId}`)
 }
 
-async function unsubscribe(channelId) {
+async function unsubscribe(channelId, hubSecret) {
   await axios.post(
     hubUrl,
     {
       'hub.mode': 'unsubscribe',
       'hub.topic': `https://www.youtube.com/xml/feeds/videos.xml?channel_id=${channelId}`,
       'hub.callback': `${APIGATEWAY_ENDPOINT}/callback?channel_id=${channelId}`,
+      'hub.secret': hubSecret,
     },
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
@@ -95,12 +97,15 @@ async function handleSchedule() {
     toBeExpiredChannelIds,
   } = await getProcessedChannelIds()
 
+  const hubSecret = await getHubSecret()
+
+  const subscribedChannelIds = [
+    ...newSubscribedChannelIds,
+    ...toBeExpiredChannelIds,
+  ]
   const tasks = [
-    [...newSubscribedChannelIds, ...toBeExpiredChannelIds].map((id) => [
-      subscribe,
-      id,
-    ]),
-    unsubscribedChannelIds.map((id) => [unsubscribe, id]),
+    subscribedChannelIds.map((id) => [subscribe, id, hubSecret]),
+    unsubscribedChannelIds.map((id) => [unsubscribe, id, hubSecret]),
   ].flat()
 
   const maxAttempts = 3

@@ -1,3 +1,5 @@
+const crypto = require('node:crypto')
+
 const { DateTime } = require('luxon')
 const { XMLParser } = require('fast-xml-parser')
 
@@ -9,7 +11,7 @@ const {
   config,
   DYNAMODB_TABLE_NAME,
 } = require('./constants')
-const { generateResponse } = require('./utils')
+const { getHubSecret, generateResponse } = require('./utils')
 
 const notifier = new YoutubeNotifier({
   credentialsPath,
@@ -39,6 +41,29 @@ function validateLink(link) {
   }
   const regex = /^https:\/\/www\.youtube\.com\//
   return regex.test(link)
+}
+
+function validateSignature(payload, signature, secret) {
+  if (!signature || !signature.startsWith('sha1=')) {
+    console.warn('Invalid signature format')
+    return false
+  }
+
+  const receivedSignature = signature.substring(5)
+  const expectedSignature = crypto
+    .createHmac('sha1', secret)
+    .update(payload, 'utf8')
+    .digest('hex')
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(receivedSignature, 'hex'),
+      Buffer.from(expectedSignature, 'hex'),
+    )
+  } catch (e) {
+    console.warn('Signature validation error:', e)
+    return false
+  }
 }
 
 function parseXML(xmlString) {
@@ -113,11 +138,20 @@ async function handleGet({ params }) {
   return generateResponse(200, challenge)
 }
 
-// TODO: validation
-async function handlePost({ params, body }) {
+async function handlePost({ params, body, headers }) {
   console.log('POST Notification received')
   console.log('Params:', params)
   console.log('Body:', body)
+
+  const signature = headers['x-hub-signature']
+  if (signature) {
+    const hubSecret = await getHubSecret()
+    if (!validateSignature(body, signature, hubSecret)) {
+      console.warn('Invalid signature')
+      return generateResponse(200)
+    }
+    console.log('Signature validated')
+  }
 
   const parsed = parseXML(body)
   if (!parsed) {
@@ -143,11 +177,12 @@ async function handlePost({ params, body }) {
   ) {
     await updateChannelStatus(channelId, { lastUpdatedAt: updatedAt })
   }
-  return generateResponse(204)
+  return generateResponse(200)
 }
 
 async function handleWebhook(event) {
   const {
+    headers,
     queryStringParameters: params,
     requestContext,
     body: requestBody,
@@ -159,7 +194,7 @@ async function handleWebhook(event) {
   if (method === 'GET') {
     response = handleGet({ params })
   } else if (method === 'POST') {
-    response = handlePost({ params, body: requestBody })
+    response = handlePost({ headers, params, body: requestBody })
   } else {
     throw new Error(`Unsupported HTTP method: ${method}`)
   }

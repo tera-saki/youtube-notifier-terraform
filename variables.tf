@@ -9,3 +9,10 @@ variable "alert_email" {
   type        = string
   sensitive   = true
 }
+
+variable "hub_secret_version" {
+  description = "Secret for validating webhook requests"
+  type        = number
+  default     = 1
+  sensitive   = true
+}

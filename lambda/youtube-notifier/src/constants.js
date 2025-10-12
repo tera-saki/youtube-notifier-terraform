@@ -24,6 +24,11 @@ if (!APIGATEWAY_ENDPOINT) {
   throw new Error('APIGATEWAY_ENDPOINT environment variable is not set')
 }
 
+const HUB_SECRET_NAME = process.env.HUB_SECRET_NAME
+if (!HUB_SECRET_NAME) {
+  throw new Error('HUB_SECRET_NAME environment variable is not set')
+}
+
 module.exports = {
   credentialsPath,
   tokenPath,
@@ -31,4 +36,5 @@ module.exports = {
   DYNAMODB_TABLE_NAME,
   SLACK_WEBHOOK_URL,
   APIGATEWAY_ENDPOINT,
+  HUB_SECRET_NAME,
 }

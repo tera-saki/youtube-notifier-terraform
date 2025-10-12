@@ -1,3 +1,7 @@
+locals {
+  region = "us-west-2"
+}
+
 terraform {
   required_providers {
     aws = {
@@ -9,5 +13,5 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-west-2"
+  region = local.region
 }
