@@ -9,9 +9,17 @@ const configPath = path.join(rootDir, 'config', 'config.json')
 const config = JSON.parse(fs.readFileSync(configPath, { encoding: 'utf-8' }))
 
 // environment variables
-const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME
-if (!DYNAMODB_TABLE_NAME) {
-  throw new Error('DYNAMODB_TABLE_NAME environment variable is not set')
+const DYNAMODB_CHANNEL_STATUS_TABLE_NAME =
+  process.env.DYNAMODB_CHANNEL_STATUS_TABLE_NAME
+if (!DYNAMODB_CHANNEL_STATUS_TABLE_NAME) {
+  throw new Error(
+    'DYNAMODB_CHANNEL_STATUS_TABLE_NAME environment variable is not set',
+  )
+}
+
+const DYNAMODB_LOCK_TABLE_NAME = process.env.DYNAMODB_LOCK_TABLE_NAME
+if (!DYNAMODB_LOCK_TABLE_NAME) {
+  throw new Error('DYNAMODB_LOCK_TABLE_NAME environment variable is not set')
 }
 
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL
@@ -33,7 +41,8 @@ module.exports = {
   credentialsPath,
   tokenPath,
   config,
-  DYNAMODB_TABLE_NAME,
+  DYNAMODB_CHANNEL_STATUS_TABLE_NAME,
+  DYNAMODB_LOCK_TABLE_NAME,
   SLACK_WEBHOOK_URL,
   APIGATEWAY_ENDPOINT,
   HUB_SECRET_NAME,

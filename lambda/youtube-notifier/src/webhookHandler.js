@@ -9,7 +9,8 @@ const {
   credentialsPath,
   tokenPath,
   config,
-  DYNAMODB_TABLE_NAME,
+  DYNAMODB_CHANNEL_STATUS_TABLE_NAME,
+  DYNAMODB_LOCK_TABLE_NAME,
 } = require('./constants')
 const { getHubSecret, generateResponse } = require('./utils')
 
@@ -71,6 +72,7 @@ function parseXML(xmlString) {
     const parsed = new XMLParser({ ignoreAttributes: false }).parse(xmlString)
     const entry = parsed.feed.entry
     const channelId = entry['yt:channelId']
+    const videoId = entry['yt:videoId']
     const link = Array.isArray(entry.link)
       ? entry.link[0]['@_href']
       : entry.link['@_href']
@@ -85,7 +87,7 @@ function parseXML(xmlString) {
     if (!DateTime.fromISO(updatedAt).isValid) {
       throw new Error('Invalid updated time')
     }
-    return { channelId, link, updatedAt }
+    return { channelId, videoId, link, updatedAt }
   } catch (e) {
     console.warn('Error parsing XML:', e)
     return null
@@ -93,15 +95,49 @@ function parseXML(xmlString) {
 }
 
 async function getChannelStatus(channelId) {
-  return DynamoDBHelper.getItem(DYNAMODB_TABLE_NAME, { channelId })
+  return DynamoDBHelper.getItem(DYNAMODB_CHANNEL_STATUS_TABLE_NAME, {
+    channelId,
+  })
 }
 
 async function updateChannelStatus(channelId, props) {
-  await DynamoDBHelper.updateItem(DYNAMODB_TABLE_NAME, { channelId }, props)
+  await DynamoDBHelper.updateItem(
+    DYNAMODB_CHANNEL_STATUS_TABLE_NAME,
+    { channelId },
+    props,
+  )
 }
 
 async function deleteChannelStatus(channelId) {
-  await DynamoDBHelper.deleteItem(DYNAMODB_TABLE_NAME, { channelId })
+  await DynamoDBHelper.deleteItem(DYNAMODB_CHANNEL_STATUS_TABLE_NAME, {
+    channelId,
+  })
+}
+
+async function getLock(videoId, ttl) {
+  try {
+    await DynamoDBHelper.putItem(
+      DYNAMODB_LOCK_TABLE_NAME,
+      {
+        videoId,
+        ttl,
+      },
+      {
+        ConditionExpression: 'attribute_not_exists(videoId)',
+      },
+    )
+    return true
+  } catch (e) {
+    if (e.name === 'ConditionalCheckFailedException') {
+      console.log('Duplicate detected:', videoId)
+      return false
+    }
+    throw e
+  }
+}
+
+async function deleteLock(videoId) {
+  await DynamoDBHelper.deleteItem(DYNAMODB_LOCK_TABLE_NAME, { videoId })
 }
 
 async function handleGet({ params }) {
@@ -157,7 +193,16 @@ async function handlePost({ params, body, headers }) {
   if (!parsed) {
     return generateResponse(400, 'Invalid XML body')
   }
-  const { channelId, link, updatedAt } = parsed
+  const { channelId, videoId, link, updatedAt } = parsed
+
+  const lockAcquired = await getLock(
+    videoId,
+    DateTime.now().plus({ seconds: 10 }).toUnixInteger(),
+  )
+  if (!lockAcquired) {
+    console.log('Duplicate notification, ignoring')
+    return generateResponse(200)
+  }
 
   const channelStatus = await getChannelStatus(channelId)
   if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
@@ -177,6 +222,7 @@ async function handlePost({ params, body, headers }) {
   ) {
     await updateChannelStatus(channelId, { lastUpdatedAt: updatedAt })
   }
+  await deleteLock(videoId)
   return generateResponse(200)
 }
 

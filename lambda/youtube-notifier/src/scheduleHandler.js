@@ -7,7 +7,7 @@ const {
   credentialsPath,
   tokenPath,
   APIGATEWAY_ENDPOINT,
-  DYNAMODB_TABLE_NAME,
+  DYNAMODB_CHANNEL_STATUS_TABLE_NAME,
 } = require('./constants')
 const { getHubSecret, generateResponse } = require('./utils')
 
@@ -55,7 +55,9 @@ async function unsubscribe(channelId, hubSecret) {
 
 async function getProcessedChannelIds() {
   const subscribedChannels = await youtubeFetcher.getSubscribedChannels()
-  const watchedChannels = await DynamoDBHelper.listItems(DYNAMODB_TABLE_NAME)
+  const watchedChannels = await DynamoDBHelper.listItems(
+    DYNAMODB_CHANNEL_STATUS_TABLE_NAME,
+  )
 
   const subscriptionExpiredAt = Object.fromEntries(
     watchedChannels.map((c) => [c.channelId, c.subscriptionExpiredAt]),

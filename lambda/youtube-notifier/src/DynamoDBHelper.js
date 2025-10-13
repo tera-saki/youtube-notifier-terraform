@@ -3,6 +3,7 @@ const {
   DynamoDBDocumentClient,
   GetCommand,
   UpdateCommand,
+  PutCommand,
   DeleteCommand,
   ScanCommand,
 } = require('@aws-sdk/lib-dynamodb')
@@ -39,6 +40,16 @@ class DynamoDBHelper {
         Key: key,
         UpdateExpression: updateExpression,
         ExpressionAttributeValues: expressionAttributeValues,
+      }),
+    )
+  }
+
+  async putItem(tableName, props, opts = {}) {
+    await this.docClient.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: props,
+        ...opts,
       }),
     )
   }

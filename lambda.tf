@@ -2,10 +2,11 @@ locals {
   lambda_configs = {
     "youtube-notifier" = {
       environment = {
-        APIGATEWAY_ENDPOINT = aws_apigatewayv2_api.youtube_webhook.api_endpoint
-        DYNAMODB_TABLE_NAME = aws_dynamodb_table.youtube_channel_status.name
-        SLACK_WEBHOOK_URL   = var.slack_webhook_url
-        HUB_SECRET_NAME     = aws_ssm_parameter.hub_secret.name
+        APIGATEWAY_ENDPOINT                = aws_apigatewayv2_api.youtube_webhook.api_endpoint
+        DYNAMODB_CHANNEL_STATUS_TABLE_NAME = aws_dynamodb_table.youtube_channel_status.name
+        DYNAMODB_LOCK_TABLE_NAME           = aws_dynamodb_table.youtube_lock.name
+        SLACK_WEBHOOK_URL                  = var.slack_webhook_url
+        HUB_SECRET_NAME                    = aws_ssm_parameter.hub_secret.name
       }
       memory_size = 256
       timeout     = 600
