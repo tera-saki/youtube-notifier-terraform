@@ -69,9 +69,23 @@ class YouTubeChannelFetcher {
       // because videos.list returns stream created time (not broadcast start time)
       // as publishedAt for live streams
       publishedAt: activities[video.id].publishedAt,
+      status: this._determineVideoStatus(video),
     }))
 
     return videos
+  }
+
+  // liveBroadcastContentが実際のステータスと同期していない場合あり
+  _determineVideoStatus(video) {
+    if (!video.liveStreamingDetails) {
+      return 'uploaded'
+    } else if (video.liveStreamingDetails.actualEndTime) {
+      return 'live_ended'
+    } else if (video.liveStreamingDetails.actualStartTime) {
+      return 'live_started'
+    } else {
+      return 'upcoming'
+    }
   }
 }
 

@@ -47,13 +47,11 @@ class YouTubeNotifier {
     const videoURL = `https://www.youtube.com/watch?v=${video.videoId}`
 
     let text
-    if (!video.liveStreamingDetails) {
+    if (video.status === 'uploaded') {
       text = `:clapper: ${video.channelTitle} uploaded a new video.`
-    } else if (video.liveStreamingDetails.actualEndTime) {
-      return // Do not notify ended live streams
-    } else if (video.liveStreamingDetails.actualStartTime) {
+    } else if (video.status === 'live_started') {
       text = `:microphone: ${video.channelTitle} is now live!`
-    } else {
+    } else if (video.status === 'upcoming') {
       const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
       )
@@ -62,6 +60,8 @@ class YouTubeNotifier {
         .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
       const timeDelta = this.getTimeDiffFromNow(scheduledStartTime)
       text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDelta} later).`
+    } else {
+      throw new Error(`Unknown video status: ${video.status}`)
     }
     text = `${text}\n${video.title}\n${videoURL}`
     await axios.post(this.slack_webhook_url, { text })
@@ -71,8 +71,12 @@ class YouTubeNotifier {
     const videos = await this.youtubeFetcher.getNewVideos(channelId, start)
 
     for (const video of videos) {
+      if (video.status === 'live_ended') {
+        continue
+      }
       await this.notify(video)
     }
+    return videos
   }
 }
 
