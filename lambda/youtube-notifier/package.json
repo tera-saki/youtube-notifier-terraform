@@ -12,9 +12,10 @@
     "@aws-sdk/client-dynamodb": "^3.902.0",
     "@aws-sdk/client-ssm": "^3.908.0",
     "@aws-sdk/lib-dynamodb": "^3.902.0",
+    "@googleapis/youtube": "^29.0.0",
     "axios": "^1.12.2",
     "fast-xml-parser": "^5.3.0",
-    "googleapis": "^161.0.0",
+    "google-auth-library": "^10.4.0",
     "luxon": "^3.7.2"
   },
   "scripts": {

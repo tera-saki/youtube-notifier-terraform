@@ -838,6 +838,13 @@
     "@eslint/core" "^0.16.0"
     levn "^0.4.1"
 
+"@googleapis/youtube@^29.0.0":
+  version "29.0.0"
+  resolved "https://registry.yarnpkg.com/@googleapis/youtube/-/youtube-29.0.0.tgz#f472ae6eb3e2e7587b1a41bddb07427f583496c6"
+  integrity sha512-acBkxsgF2GkaQJ/5mFKkhWOwXTUybEacwrojpBMmVC+ciXjGF0Oa2jL3nbnE7pgI6d84WgSWxYJbIaGFnDAbxA==
+  dependencies:
+    googleapis-common "^8.0.0"
+
 "@humanfs/core@^0.19.1":
   version "0.19.1"
   resolved "https://registry.yarnpkg.com/@humanfs/core/-/core-0.19.1.tgz#17c55ca7d426733fe3c561906b8173c336b40a77"
@@ -1870,7 +1877,7 @@ globals@^16.4.0:
   resolved "https://registry.yarnpkg.com/globals/-/globals-16.4.0.tgz#574bc7e72993d40cf27cf6c241f324ee77808e51"
   integrity sha512-ob/2LcVVaVGCYN+r14cnwnoDPUufjiYgSqRhiFD0Q1iI4Odora5RE8Iv1D24hAz5oMophRGkGz+yuvQmmUMnMw==
 
-google-auth-library@^10.1.0, google-auth-library@^10.2.0:
+google-auth-library@^10.1.0, google-auth-library@^10.4.0:
   version "10.4.0"
   resolved "https://registry.yarnpkg.com/google-auth-library/-/google-auth-library-10.4.0.tgz#2d5e36f3e0b0f33b1c5466a2f25617ff2c258c91"
   integrity sha512-CmIrSy1bqMQUsPmA9+hcSbAXL80cFhu40cGMUjCaLpNKVzzvi+0uAHq8GNZxkoGYIsTX4ZQ7e4aInAqWxgn4fg==
@@ -1898,14 +1905,6 @@ googleapis-common@^8.0.0:
     google-auth-library "^10.1.0"
     qs "^6.7.0"
     url-template "^2.0.8"
-
-googleapis@^161.0.0:
-  version "161.0.0"
-  resolved "https://registry.yarnpkg.com/googleapis/-/googleapis-161.0.0.tgz#63c1e3bf675683fdf131d5f05ae4f9613c5f60ee"
-  integrity sha512-JZy2cWMxgUF8E09KHzplI+z+FVG8NWDB/bsf4xevt9Um4bInb0X1qaG9qpDn49DHT5HsU0mOp3EOBGb8+AdE3Q==
-  dependencies:
-    google-auth-library "^10.2.0"
-    googleapis-common "^8.0.0"
 
 gopd@^1.2.0:
   version "1.2.0"

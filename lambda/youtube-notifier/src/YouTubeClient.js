@@ -1,6 +1,7 @@
 const fs = require('node:fs')
 
-const { google } = require('googleapis')
+const { youtube } = require('@googleapis/youtube')
+const { OAuth2Client } = require('google-auth-library')
 
 class YouTubeClient {
   constructor({ credentialsPath, tokenPath }) {
@@ -18,14 +19,9 @@ class YouTubeClient {
     const { credentials, token } = this.loadCredentials()
     const { client_secret, client_id, redirect_uris } = credentials.installed
 
-    const auth = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris[0],
-    )
-
+    const auth = new OAuth2Client(client_id, client_secret, redirect_uris[0])
     auth.setCredentials(token)
-    return google.youtube({ version: 'v3', auth })
+    return youtube({ version: 'v3', auth })
   }
 }
 
