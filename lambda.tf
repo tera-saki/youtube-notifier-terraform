@@ -29,7 +29,7 @@ locals {
 
   lambda_layer_hashes = {
     for k, v in local.lambda_configs : k => sha256(join("", [
-      for file in ["package.json", "yarn.lock"] :
+      for file in ["package.json", "package-lock.json"] :
       filesha256("lambda/${k}/${file}")
     ]))
   }

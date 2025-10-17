@@ -10,8 +10,8 @@ LAMBDA_DIR="$LAMBDA_BASE_DIR/$LAMBDA_NAME"
 
 TEMP_DIR=$(mktemp -d)
 mkdir -p "$TEMP_DIR/nodejs"
-cp "$LAMBDA_DIR"/{package.json,yarn.lock} "$TEMP_DIR/nodejs/"
-cd "$TEMP_DIR/nodejs" && yarn --production
+cp "$LAMBDA_DIR"/{package.json,package-lock.json} "$TEMP_DIR/nodejs/"
+cd "$TEMP_DIR/nodejs" && npm install --production
 mkdir -p "$LAMBDA_DIR/dist"
 cd "$TEMP_DIR"
 rm "$LAMBDA_DIR/dist/layer.zip" || :
