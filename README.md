@@ -51,6 +51,11 @@ flowchart TD
 6. **SNS**
    - アラート通知を配信
 
+## システム要件
+
+- **Terraform** >= 1.13.0
+- **Node.js** >= 22
+
 ## 設定手順
 
 ### 1. YouTube API の認証情報を設定
