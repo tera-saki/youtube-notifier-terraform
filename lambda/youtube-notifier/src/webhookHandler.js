@@ -180,14 +180,12 @@ async function handlePost({ params, body, headers }) {
   console.log('Body:', body)
 
   const signature = headers['x-hub-signature']
-  if (signature) {
-    const hubSecret = await getHubSecret()
-    if (!validateSignature(body, signature, hubSecret)) {
-      console.warn('Invalid signature')
-      return generateResponse(200)
-    }
-    console.log('Signature validated')
+  const hubSecret = await getHubSecret()
+  if (!validateSignature(body, signature, hubSecret)) {
+    console.warn('Invalid signature')
+    return generateResponse(200)
   }
+  console.log('Signature validated')
 
   const parsed = parseXML(body)
   if (!parsed) {
