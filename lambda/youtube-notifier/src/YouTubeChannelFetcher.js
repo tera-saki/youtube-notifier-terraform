@@ -54,7 +54,7 @@ class YouTubeChannelFetcher {
     }
 
     const videoListResponses = await this.client.videos.list({
-      part: ['snippet', 'liveStreamingDetails'],
+      part: ['snippet', 'liveStreamingDetails', 'status'],
       id: videoIds.join(','),
     })
 
@@ -83,8 +83,10 @@ class YouTubeChannelFetcher {
       return 'live_ended'
     } else if (video.liveStreamingDetails.actualStartTime) {
       return 'live_started'
+    } else if (video.status.uploadStatus === 'processed') {
+      return 'upcoming_premiere'
     } else {
-      return 'upcoming'
+      return 'upcoming_live'
     }
   }
 }

@@ -51,7 +51,10 @@ class YouTubeNotifier {
       text = `:clapper: ${video.channelTitle} uploaded a new video.`
     } else if (video.status === 'live_started') {
       text = `:microphone: ${video.channelTitle} is now live!`
-    } else if (video.status === 'upcoming') {
+    } else if (
+      video.status === 'upcoming_live' ||
+      video.status === 'upcoming_premiere'
+    ) {
       const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
       )
@@ -59,7 +62,12 @@ class YouTubeNotifier {
         .setZone('Asia/Tokyo')
         .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
       const timeDelta = this.getTimeDiffFromNow(scheduledStartTime)
-      text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDelta} later).`
+
+      if (video.status === 'upcoming_live') {
+        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDelta} later).`
+      } else {
+        text = `:circus_tent: ${video.channelTitle} plans to start premiere at ${localeString} (${timeDelta} later).`
+      }
     } else {
       throw new Error(`Unknown video status: ${video.status}`)
     }
