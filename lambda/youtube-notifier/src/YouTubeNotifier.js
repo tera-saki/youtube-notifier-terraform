@@ -1,13 +1,20 @@
 const fs = require('node:fs')
 
 const axios = require('axios')
-const { DateTime } = require('luxon')
+const { DateTime, Duration } = require('luxon')
 
 const { SLACK_WEBHOOK_URL } = require('./constants')
 
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
 
 class YouTubeNotifier {
+  VIDEO_STATUS = {
+    UPLOADED: 'uploaded',
+    LIVE_STARTED: 'live_started',
+    LIVE_ENDED: 'live_ended',
+    UPCOMING_LIVE: 'upcoming_live',
+    UPCOMING_PREMIERE: 'upcoming_premiere',
+  }
   constructor({ credentialsPath, tokenPath }) {
     if (!fs.existsSync(credentialsPath)) {
       throw new Error(`Credential file not found: ${credentialsPath}`)
@@ -22,6 +29,31 @@ class YouTubeNotifier {
     })
 
     this.slack_webhook_url = SLACK_WEBHOOK_URL
+  }
+
+  // liveBroadcastContentが実際のステータスと同期していない場合あり
+  determineVideoStatus(video) {
+    if (!video.liveStreamingDetails) {
+      return this.VIDEO_STATUS.UPLOADED
+    }
+    const { actualStartTime, actualEndTime } = video.liveStreamingDetails
+    if (actualEndTime) {
+      return this.VIDEO_STATUS.LIVE_ENDED
+    } else if (actualStartTime) {
+      // ライブ終了時にactualEndTimeがundefinedのままである場合あり
+      if (
+        DateTime.now() - DateTime.fromISO(actualStartTime) >
+        Duration.fromObject({ minutes: 10 })
+      ) {
+        console.log('actualEndTime is not set, but the live seems ended')
+        return this.VIDEO_STATUS.LIVE_ENDED
+      }
+      return this.VIDEO_STATUS.LIVE_STARTED
+    } else if (video.uploadStatus === 'processed') {
+      return this.VIDEO_STATUS.UPCOMING_PREMIERE
+    } else {
+      return this.VIDEO_STATUS.UPCOMING_LIVE
+    }
   }
 
   getTimeDiffFromNow(datetime) {
@@ -47,13 +79,13 @@ class YouTubeNotifier {
     const videoURL = `https://www.youtube.com/watch?v=${video.videoId}`
 
     let text
-    if (video.status === 'uploaded') {
+    if (video.status === this.VIDEO_STATUS.UPLOADED) {
       text = `:clapper: ${video.channelTitle} uploaded a new video.`
-    } else if (video.status === 'live_started') {
+    } else if (video.status === this.VIDEO_STATUS.LIVE_STARTED) {
       text = `:microphone: ${video.channelTitle} is now live!`
     } else if (
-      video.status === 'upcoming_live' ||
-      video.status === 'upcoming_premiere'
+      video.status === this.VIDEO_STATUS.UPCOMING_LIVE ||
+      video.status === this.VIDEO_STATUS.UPCOMING_PREMIERE
     ) {
       const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
@@ -63,7 +95,7 @@ class YouTubeNotifier {
         .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
       const timeDelta = this.getTimeDiffFromNow(scheduledStartTime)
 
-      if (video.status === 'upcoming_live') {
+      if (video.status === this.VIDEO_STATUS.UPCOMING_LIVE) {
         text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDelta} later).`
       } else {
         text = `:circus_tent: ${video.channelTitle} plans to start premiere at ${localeString} (${timeDelta} later).`
@@ -79,7 +111,8 @@ class YouTubeNotifier {
     const videos = await this.youtubeFetcher.getNewVideos(channelId, start)
 
     for (const video of videos) {
-      if (video.status === 'live_ended') {
+      video.status = this.determineVideoStatus(video)
+      if (video.status === this.VIDEO_STATUS.LIVE_ENDED) {
         continue
       }
       await this.notify(video)

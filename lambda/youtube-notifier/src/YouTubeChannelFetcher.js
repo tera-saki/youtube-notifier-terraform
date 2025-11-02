@@ -56,27 +56,11 @@ class YouTubeChannelFetcher {
       title: video.snippet.title,
       channelId: video.snippet.channelId,
       channelTitle: video.snippet.channelTitle,
-      liveBroadcastContent: video.snippet.liveBroadcastContent,
       liveStreamingDetails: video.liveStreamingDetails,
-      status: this._determineVideoStatus(video),
+      uploadStatus: video.status.uploadStatus,
     }))
 
     return videos
-  }
-
-  // liveBroadcastContentが実際のステータスと同期していない場合あり
-  _determineVideoStatus(video) {
-    if (!video.liveStreamingDetails) {
-      return 'uploaded'
-    } else if (video.liveStreamingDetails.actualEndTime) {
-      return 'live_ended'
-    } else if (video.liveStreamingDetails.actualStartTime) {
-      return 'live_started'
-    } else if (video.status.uploadStatus === 'processed') {
-      return 'upcoming_premiere'
-    } else {
-      return 'upcoming_live'
-    }
   }
 }
 
