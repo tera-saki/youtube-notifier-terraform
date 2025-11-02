@@ -38,16 +38,9 @@ class YouTubeChannelFetcher {
       maxResults: 10,
     })
 
-    const activities = {}
-    for (const item of activityResponses.data.items) {
-      if (item.snippet.type !== 'upload') {
-        continue
-      }
-      const videoId = item.contentDetails.upload.videoId
-      const publishedAt = item.snippet.publishedAt
-      activities[videoId] = { publishedAt }
-    }
-    const videoIds = Object.keys(activities)
+    const videoIds = activityResponses.data.items
+      .filter((item) => item.snippet.type === 'upload')
+      .map((item) => item.contentDetails.upload.videoId)
 
     if (videoIds.length === 0) {
       return []
@@ -65,10 +58,6 @@ class YouTubeChannelFetcher {
       channelTitle: video.snippet.channelTitle,
       liveBroadcastContent: video.snippet.liveBroadcastContent,
       liveStreamingDetails: video.liveStreamingDetails,
-      // use publishedAt from activities.list response
-      // because videos.list returns stream created time (not broadcast start time)
-      // as publishedAt for live streams
-      publishedAt: activities[video.id].publishedAt,
       status: this._determineVideoStatus(video),
     }))
 
