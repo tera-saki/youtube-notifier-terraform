@@ -57,22 +57,23 @@ class YouTubeNotifier {
   }
 
   getTimeDiffFromNow(datetime) {
-    const { days, hours, minutes } = datetime.diffNow([
-      'days',
-      'hours',
-      'minutes',
-      'seconds',
-    ]).values
+    const { days, hours, minutes } = datetime
+      .diffNow(['days', 'hours', 'minutes', 'seconds'])
+      .toObject()
 
-    let delta
-    if (days === 0 && hours === 0) {
-      delta = `${minutes}m`
-    } else if (days === 0) {
-      delta = `${hours}h${minutes}m`
-    } else {
-      delta = `${days}d${hours}h${minutes}m`
+    if (minutes <= 0) {
+      return 'starting soon'
     }
-    return delta
+
+    let diff
+    if (days === 0 && hours === 0) {
+      diff = `${minutes}m later`
+    } else if (days === 0) {
+      diff = `${hours}h${minutes}m later`
+    } else {
+      diff = `${days}d${hours}h${minutes}m later`
+    }
+    return diff
   }
 
   async notify(video) {
@@ -93,12 +94,12 @@ class YouTubeNotifier {
       const localeString = scheduledStartTime
         .setZone('Asia/Tokyo')
         .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
-      const timeDelta = this.getTimeDiffFromNow(scheduledStartTime)
+      const timeDiff = this.getTimeDiffFromNow(scheduledStartTime)
 
       if (video.status === this.VIDEO_STATUS.UPCOMING_LIVE) {
-        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDelta} later).`
+        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDiff}).`
       } else {
-        text = `:circus_tent: ${video.channelTitle} plans to start premiere at ${localeString} (${timeDelta} later).`
+        text = `:circus_tent: ${video.channelTitle} plans to start premiere at ${localeString} (${timeDiff}).`
       }
     } else {
       throw new Error(`Unknown video status: ${video.status}`)
