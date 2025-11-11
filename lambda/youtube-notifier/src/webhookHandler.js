@@ -70,7 +70,12 @@ function validateSignature(payload, signature, secret) {
 function parseXML(xmlString) {
   try {
     const parsed = new XMLParser({ ignoreAttributes: false }).parse(xmlString)
-    const entry = parsed.feed.entry
+    const feed = parsed.feed
+    if (feed['at:deleted-entry']) {
+      console.log('ignore deleted entry')
+      return [true, null]
+    }
+    const entry = feed.entry
     const channelId = entry['yt:channelId']
     const videoId = entry['yt:videoId']
     const link = Array.isArray(entry.link)
@@ -87,10 +92,10 @@ function parseXML(xmlString) {
     if (!DateTime.fromISO(updatedAt).isValid) {
       throw new Error('Invalid updated time')
     }
-    return { channelId, videoId, link, updatedAt }
+    return [true, { channelId, videoId, link, updatedAt }]
   } catch (e) {
     console.warn('Error parsing XML:', e)
-    return null
+    return [false, null]
   }
 }
 
@@ -187,11 +192,14 @@ async function handlePost({ params, body, headers }) {
   }
   console.log('Signature validated')
 
-  const parsed = parseXML(body)
-  if (!parsed) {
+  const [succeeded, xml] = parseXML(body)
+  if (!succeeded) {
     return generateResponse(400, 'Invalid XML body')
   }
-  const { channelId, videoId, link, updatedAt } = parsed
+  if (!xml) {
+    return generateResponse(200)
+  }
+  const { channelId, videoId, link, updatedAt } = xml
 
   const lockAcquired = await getLock(
     videoId,
