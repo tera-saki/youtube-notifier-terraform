@@ -66,18 +66,6 @@ flowchart TD
 
 ### 2. 設定ファイルの作成
 
-- `lambda/youtube-notifier/config/config.json` を作成
-
-  - `exclude_shorts` (`boolean`): true を指定すると、shorts 動画を通知しない
-
-  （例）
-
-  ```json
-  {
-    "exclude_shorts": true
-  }
-  ```
-
 - ルートディレクトリ配下に `terraform.tfvars` を作成
 
   - `slack_webhook_url` (`str`): 通知先の Slack Webhook URL
@@ -89,6 +77,23 @@ flowchart TD
   slack_webhook_url = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 
   alert_email = "your-email@example.com"
+  ```
+
+- `lambda/youtube-notifier/config/config.json` を作成
+
+  - `exclude_shorts` (`boolean`): true を指定すると、shorts 動画を通知しない
+  - `target_members_only_contents` (`string`): メンバー限定コンテンツの扱いについて、以下のいずれかを指定：
+    - `all` - すべてのメンバー限定コンテンツを通知
+    - `subscribed_only` — メンバーに加入しているチャンネルのコンテンツのみ通知
+    - `none` — メンバー限定コンテンツは通知しない
+
+  （例）
+
+  ```json
+  {
+    "exclude_shorts": false,
+    "target_members_only_contents": "subscribed_only"
+  }
   ```
 
 ## デプロイ

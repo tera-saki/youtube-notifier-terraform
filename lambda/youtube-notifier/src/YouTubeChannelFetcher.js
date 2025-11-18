@@ -40,7 +40,7 @@ class YouTubeChannelFetcher {
 
   async getVideoDetails(videoId) {
     const videoListResponses = await this.client.videos.list({
-      part: ['snippet', 'liveStreamingDetails', 'status'],
+      part: ['snippet', 'liveStreamingDetails', 'status', 'statistics'],
       id: videoId,
     })
 
@@ -53,6 +53,7 @@ class YouTubeChannelFetcher {
       publishedAt: video.snippet.publishedAt,
       liveStreamingDetails: video.liveStreamingDetails,
       uploadStatus: video.status.uploadStatus,
+      isMembersOnly: video.statistics.viewCount === undefined,
     }
   }
 }

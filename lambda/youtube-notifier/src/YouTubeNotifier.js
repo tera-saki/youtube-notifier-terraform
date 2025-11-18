@@ -5,7 +5,11 @@ const { DateTime, Duration } = require('luxon')
 
 const DynamoDBHelper = require('./DynamoDBHelper')
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
-const { DYNAMODB_LOCK_TABLE_NAME, SLACK_WEBHOOK_URL } = require('./constants')
+const {
+  config,
+  DYNAMODB_LOCK_TABLE_NAME,
+  SLACK_WEBHOOK_URL,
+} = require('./constants')
 
 class YouTubeNotifier {
   VIDEO_STATUS = {
@@ -145,6 +149,25 @@ class YouTubeNotifier {
     ) {
       console.log('Ignore old uploaded video')
       return
+    }
+
+    if (config.target_members_only_contents === 'none' && video.isMembersOnly) {
+      console.log('Ignore members-only content')
+      return
+    }
+    if (config.target_members_only_contents === 'subscribed_only') {
+      const activities = await this.youtubeFetcher.getNewActivities(
+        video.channelId,
+      )
+      const isActivityFound = activities
+        .filter((item) => item.snippet.type === 'upload')
+        .some((item) => item.contentDetails.upload.videoId === videoId)
+      if (!isActivityFound) {
+        console.log(
+          'Ignore the video because it seems members-only content of channel that you are not member of',
+        )
+        return
+      }
     }
 
     const isUpcoming =
