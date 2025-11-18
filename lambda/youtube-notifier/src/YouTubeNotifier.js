@@ -151,8 +151,9 @@ class YouTubeNotifier {
       video.status === this.VIDEO_STATUS.UPCOMING_LIVE ||
       video.status === this.VIDEO_STATUS.UPCOMING_PREMIERE
     const lockKey = `${videoId}-${video.status}`
+    // scheduledStartTimeがundefinedである場合あり
     const ttl = (
-      isUpcoming
+      isUpcoming && video.liveStreamingDetails.scheduledStartTime
         ? DateTime.fromISO(video.liveStreamingDetails.scheduledStartTime)
         : DateTime.now()
     )
