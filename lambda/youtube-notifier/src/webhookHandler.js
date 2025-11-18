@@ -10,22 +10,8 @@ const {
   tokenPath,
   config,
   DYNAMODB_CHANNEL_STATUS_TABLE_NAME,
-  DYNAMODB_LOCK_TABLE_NAME,
 } = require('./constants')
 const { getHubSecret, generateResponse } = require('./utils')
-
-const notifier = new YoutubeNotifier({
-  credentialsPath,
-  tokenPath,
-})
-
-function validateChannelId(channelId) {
-  if (typeof channelId !== 'string') {
-    return false
-  }
-  const regex = /^[a-zA-Z0-9\-_]{24}$/
-  return regex.test(channelId)
-}
 
 function validateTopic(topic) {
   if (typeof topic !== 'string') {
@@ -76,33 +62,19 @@ function parseXML(xmlString) {
       return [true, null]
     }
     const entry = feed.entry
-    const channelId = entry['yt:channelId']
     const videoId = entry['yt:videoId']
     const link = Array.isArray(entry.link)
       ? entry.link[0]['@_href']
       : entry.link['@_href']
-    const updatedAt = entry.updated
 
-    if (!validateChannelId(channelId)) {
-      throw new Error('Invalid channel ID')
-    }
     if (!validateLink(link)) {
       throw new Error('Invalid video link')
     }
-    if (!DateTime.fromISO(updatedAt).isValid) {
-      throw new Error('Invalid updated time')
-    }
-    return [true, { channelId, videoId, link, updatedAt }]
+    return [true, { videoId, link }]
   } catch (e) {
     console.warn('Error parsing XML:', e)
     return [false, null]
   }
-}
-
-async function getChannelStatus(channelId) {
-  return DynamoDBHelper.getItem(DYNAMODB_CHANNEL_STATUS_TABLE_NAME, {
-    channelId,
-  })
 }
 
 async function updateChannelStatus(channelId, props) {
@@ -117,32 +89,6 @@ async function deleteChannelStatus(channelId) {
   await DynamoDBHelper.deleteItem(DYNAMODB_CHANNEL_STATUS_TABLE_NAME, {
     channelId,
   })
-}
-
-async function getLock(videoId, ttl) {
-  try {
-    await DynamoDBHelper.putItem(
-      DYNAMODB_LOCK_TABLE_NAME,
-      {
-        videoId,
-        ttl,
-      },
-      {
-        ConditionExpression: 'attribute_not_exists(videoId)',
-      },
-    )
-    return true
-  } catch (e) {
-    if (e.name === 'ConditionalCheckFailedException') {
-      console.log('Duplicate detected:', videoId)
-      return false
-    }
-    throw e
-  }
-}
-
-async function deleteLock(videoId) {
-  await DynamoDBHelper.deleteItem(DYNAMODB_LOCK_TABLE_NAME, { videoId })
 }
 
 async function handleGet({ params }) {
@@ -199,36 +145,17 @@ async function handlePost({ params, body, headers }) {
   if (!xml) {
     return generateResponse(200)
   }
-  const { channelId, videoId, link, updatedAt } = xml
+  const { videoId, link } = xml
 
-  const lockAcquired = await getLock(
-    videoId,
-    DateTime.now().plus({ seconds: 10 }).toUnixInteger(),
-  )
-  if (!lockAcquired) {
-    console.log('Duplicate notification, ignoring')
+  if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
+    console.log('Excluded shorts video:', link)
     return generateResponse(200)
   }
 
-  const channelStatus = await getChannelStatus(channelId)
-  if (config.exclude_shorts && link.match('https://www.youtube.com/shorts/')) {
-    console.log('Excluded shorts video:', link)
-  } else {
-    const start = channelStatus?.lastUpdatedAt
-      ? DateTime.fromISO(channelStatus.lastUpdatedAt)
-          .plus({ seconds: 1 })
-          .toISO()
-      : DateTime.now().minus({ days: 1 }).toISO()
-    await notifier.run(channelId, start)
-  }
-
-  if (
-    !channelStatus?.lastUpdatedAt ||
-    channelStatus.lastUpdatedAt < updatedAt
-  ) {
-    await updateChannelStatus(channelId, { lastUpdatedAt: updatedAt })
-  }
-  await deleteLock(videoId)
+  await new YoutubeNotifier({
+    credentialsPath,
+    tokenPath,
+  }).run(videoId)
   return generateResponse(200)
 }
 

@@ -12,10 +12,10 @@ resource "aws_dynamodb_table" "youtube_channel_status" {
 resource "aws_dynamodb_table" "youtube_lock" {
   name         = "youtube-lock"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "videoId"
+  hash_key     = "lock_key"
 
   attribute {
-    name = "videoId"
+    name = "lock_key"
     type = "S"
   }
 

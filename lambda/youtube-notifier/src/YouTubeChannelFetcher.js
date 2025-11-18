@@ -29,38 +29,31 @@ class YouTubeChannelFetcher {
     }))
   }
 
-  // Get new videos from a channel since a given time
-  async getNewVideos(channelId, from) {
+  async getNewActivities(channelId) {
     const activityResponses = await this.client.activities.list({
       part: ['snippet', 'contentDetails'],
       channelId,
-      publishedAfter: from,
       maxResults: 10,
     })
+    return activityResponses.data.items
+  }
 
-    const videoIds = activityResponses.data.items
-      .filter((item) => item.snippet.type === 'upload')
-      .map((item) => item.contentDetails.upload.videoId)
-
-    if (videoIds.length === 0) {
-      return []
-    }
-
+  async getVideoDetails(videoId) {
     const videoListResponses = await this.client.videos.list({
       part: ['snippet', 'liveStreamingDetails', 'status'],
-      id: videoIds.join(','),
+      id: videoId,
     })
 
-    const videos = videoListResponses.data.items.map((video) => ({
+    const video = videoListResponses.data.items[0]
+    return {
       videoId: video.id,
       title: video.snippet.title,
       channelId: video.snippet.channelId,
       channelTitle: video.snippet.channelTitle,
+      publishedAt: video.snippet.publishedAt,
       liveStreamingDetails: video.liveStreamingDetails,
       uploadStatus: video.status.uploadStatus,
-    }))
-
-    return videos
+    }
   }
 }
 

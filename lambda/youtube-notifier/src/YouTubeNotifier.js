@@ -3,9 +3,9 @@ const fs = require('node:fs')
 const axios = require('axios')
 const { DateTime, Duration } = require('luxon')
 
-const { SLACK_WEBHOOK_URL } = require('./constants')
-
+const DynamoDBHelper = require('./DynamoDBHelper')
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
+const { DYNAMODB_LOCK_TABLE_NAME, SLACK_WEBHOOK_URL } = require('./constants')
 
 class YouTubeNotifier {
   VIDEO_STATUS = {
@@ -29,6 +29,28 @@ class YouTubeNotifier {
     })
 
     this.slack_webhook_url = SLACK_WEBHOOK_URL
+  }
+
+  async getLock(key, ttl) {
+    try {
+      await DynamoDBHelper.putItem(
+        DYNAMODB_LOCK_TABLE_NAME,
+        {
+          lock_key: key,
+          ttl,
+        },
+        {
+          ConditionExpression: 'attribute_not_exists(lock_key)',
+        },
+      )
+      return true
+    } catch (e) {
+      if (e.name === 'ConditionalCheckFailedException') {
+        console.log('Duplicate detected:', key)
+        return false
+      }
+      throw e
+    }
   }
 
   // liveBroadcastContentが実際のステータスと同期していない場合あり
@@ -108,17 +130,41 @@ class YouTubeNotifier {
     await axios.post(this.slack_webhook_url, { text })
   }
 
-  async run(channelId, start) {
-    const videos = await this.youtubeFetcher.getNewVideos(channelId, start)
+  async run(videoId) {
+    const video = await this.youtubeFetcher.getVideoDetails(videoId)
+    video.status = this.determineVideoStatus(video)
 
-    for (const video of videos) {
-      video.status = this.determineVideoStatus(video)
-      if (video.status === this.VIDEO_STATUS.LIVE_ENDED) {
-        continue
-      }
-      await this.notify(video)
+    if (video.status === this.VIDEO_STATUS.LIVE_ENDED) {
+      console.log('Ignore ended live streams')
+      return
     }
-    return videos
+
+    if (
+      video.status === this.VIDEO_STATUS.UPLOADED &&
+      DateTime.fromISO(video.publishedAt) < DateTime.now().minus({ days: 1 })
+    ) {
+      console.log('Ignore old uploaded video')
+      return
+    }
+
+    const isUpcoming =
+      video.status === this.VIDEO_STATUS.UPCOMING_LIVE ||
+      video.status === this.VIDEO_STATUS.UPCOMING_PREMIERE
+    const lockKey = `${videoId}-${video.status}`
+    const ttl = (
+      isUpcoming
+        ? DateTime.fromISO(video.liveStreamingDetails.scheduledStartTime)
+        : DateTime.now()
+    )
+      .plus({ days: 1 })
+      .toUnixInteger()
+    const lockAcquired = await this.getLock(lockKey, ttl)
+    if (!lockAcquired) {
+      console.log('Notification already sent for this video and status')
+      return
+    }
+    await this.notify(video)
+    console.log('Notification sent')
   }
 }
 
