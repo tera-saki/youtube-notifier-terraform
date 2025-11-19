@@ -117,10 +117,14 @@ class YouTubeNotifier {
       const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
       )
-      const localeString = scheduledStartTime
-        .setZone('Asia/Tokyo')
-        .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
-      const timeDiff = this.getTimeDiffFromNow(scheduledStartTime)
+      const localeString = scheduledStartTime.isValid
+        ? scheduledStartTime
+            .setZone('Asia/Tokyo')
+            .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'ja' })
+        : 'unknown time'
+      const timeDiff = scheduledStartTime.isValid
+        ? this.getTimeDiffFromNow(scheduledStartTime)
+        : 'unknown'
 
       if (video.status === this.VIDEO_STATUS.UPCOMING_LIVE) {
         text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDiff}).`
