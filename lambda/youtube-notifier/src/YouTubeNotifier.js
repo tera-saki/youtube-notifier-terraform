@@ -62,21 +62,17 @@ class YouTubeNotifier {
     if (!video.liveStreamingDetails) {
       return this.VIDEO_STATUS.UPLOADED
     }
-    const { actualStartTime, actualEndTime } = video.liveStreamingDetails
+    const { scheduledStartTime, actualStartTime, actualEndTime } =
+      video.liveStreamingDetails
     if (actualEndTime) {
       return this.VIDEO_STATUS.LIVE_ENDED
     } else if (actualStartTime) {
-      // ライブ終了時にactualEndTimeがundefinedのままである場合あり
-      if (
-        DateTime.now() - DateTime.fromISO(actualStartTime) >
-        Duration.fromObject({ minutes: 10 })
-      ) {
-        console.log('actualEndTime is not set, but the live seems ended')
-        return this.VIDEO_STATUS.LIVE_ENDED
-      }
       return this.VIDEO_STATUS.LIVE_STARTED
     } else if (video.uploadStatus === 'processed') {
-      return this.VIDEO_STATUS.UPCOMING_PREMIERE
+      // プレミア公開の場合、カウントダウン中はactualStartTimeがundefined
+      return DateTime.now() > DateTime.fromISO(scheduledStartTime)
+        ? this.VIDEO_STATUS.LIVE_STARTED
+        : this.VIDEO_STATUS.UPCOMING_PREMIERE
     } else {
       return this.VIDEO_STATUS.UPCOMING_LIVE
     }
