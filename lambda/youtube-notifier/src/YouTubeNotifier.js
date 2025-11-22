@@ -114,11 +114,11 @@ class YouTubeNotifier {
   }
 
   getTimeDiffFromNow(datetime) {
-    const { days, hours, minutes } = datetime
+    const { days, hours, minutes, seconds } = datetime
       .diffNow(['days', 'hours', 'minutes', 'seconds'])
       .toObject()
 
-    if (minutes <= 0) {
+    if (seconds < 0) {
       return 'starting soon'
     }
 
