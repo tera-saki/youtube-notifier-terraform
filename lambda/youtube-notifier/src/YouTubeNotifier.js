@@ -1,7 +1,7 @@
 const fs = require('node:fs')
 
 const axios = require('axios')
-const { DateTime, Duration } = require('luxon')
+const { DateTime } = require('luxon')
 
 const DynamoDBHelper = require('./DynamoDBHelper')
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
@@ -69,13 +69,48 @@ class YouTubeNotifier {
     } else if (actualStartTime) {
       return this.VIDEO_STATUS.LIVE_STARTED
     } else if (video.uploadStatus === 'processed') {
-      // プレミア公開の場合、カウントダウン中はactualStartTimeがundefined
+      // actualStartTimeがundefinedの場合あり
       return DateTime.now() > DateTime.fromISO(scheduledStartTime)
         ? this.VIDEO_STATUS.LIVE_STARTED
         : this.VIDEO_STATUS.UPCOMING_PREMIERE
     } else {
       return this.VIDEO_STATUS.UPCOMING_LIVE
     }
+  }
+
+  async isNotificationTarget(video) {
+    if (video.status === this.VIDEO_STATUS.LIVE_ENDED) {
+      console.log('Ignore ended live streams')
+      return false
+    }
+
+    if (
+      video.status === this.VIDEO_STATUS.UPLOADED &&
+      DateTime.fromISO(video.publishedAt) < DateTime.now().minus({ days: 1 })
+    ) {
+      console.log('Ignore old uploaded video')
+      return false
+    }
+
+    if (config.target_members_only_contents === 'none' && video.isMembersOnly) {
+      console.log('Ignore members-only content')
+      return false
+    }
+    if (config.target_members_only_contents === 'subscribed_only') {
+      const activities = await this.youtubeFetcher.getNewActivities(
+        video.channelId,
+      )
+      const isActivityFound = activities
+        .filter((item) => item.snippet.type === 'upload')
+        .some((item) => item.contentDetails.upload.videoId === video.id)
+      if (!isActivityFound) {
+        console.log(
+          'Ignore the video because it seems members-only content of channel that you are not member of',
+        )
+        return false
+      }
+    }
+    return true
   }
 
   getTimeDiffFromNow(datetime) {
@@ -138,36 +173,9 @@ class YouTubeNotifier {
     const video = await this.youtubeFetcher.getVideoDetails(videoId)
     video.status = this.determineVideoStatus(video)
 
-    if (video.status === this.VIDEO_STATUS.LIVE_ENDED) {
-      console.log('Ignore ended live streams')
+    const isNotificationTarget = await this.isNotificationTarget(video)
+    if (!isNotificationTarget) {
       return
-    }
-
-    if (
-      video.status === this.VIDEO_STATUS.UPLOADED &&
-      DateTime.fromISO(video.publishedAt) < DateTime.now().minus({ days: 1 })
-    ) {
-      console.log('Ignore old uploaded video')
-      return
-    }
-
-    if (config.target_members_only_contents === 'none' && video.isMembersOnly) {
-      console.log('Ignore members-only content')
-      return
-    }
-    if (config.target_members_only_contents === 'subscribed_only') {
-      const activities = await this.youtubeFetcher.getNewActivities(
-        video.channelId,
-      )
-      const isActivityFound = activities
-        .filter((item) => item.snippet.type === 'upload')
-        .some((item) => item.contentDetails.upload.videoId === videoId)
-      if (!isActivityFound) {
-        console.log(
-          'Ignore the video because it seems members-only content of channel that you are not member of',
-        )
-        return
-      }
     }
 
     const isUpcoming =
