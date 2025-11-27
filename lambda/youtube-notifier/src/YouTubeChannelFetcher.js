@@ -52,7 +52,7 @@ class YouTubeChannelFetcher {
       channelTitle: video.snippet.channelTitle,
       publishedAt: video.snippet.publishedAt,
       liveStreamingDetails: video.liveStreamingDetails,
-      uploadStatus: video.status.uploadStatus,
+      isPremiere: video.status.uploadStatus === 'processed',
       isMembersOnly: video.statistics.viewCount === undefined,
     }
   }

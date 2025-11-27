@@ -14,10 +14,9 @@ const {
 class YouTubeNotifier {
   VIDEO_STATUS = {
     UPLOADED: 'uploaded',
-    LIVE_STARTED: 'live_started',
-    LIVE_ENDED: 'live_ended',
-    UPCOMING_LIVE: 'upcoming_live',
-    UPCOMING_PREMIERE: 'upcoming_premiere',
+    STARTED: 'started',
+    ENDED: 'ended',
+    UPCOMING: 'upcoming',
   }
   constructor({ credentialsPath, tokenPath }) {
     if (!fs.existsSync(credentialsPath)) {
@@ -64,22 +63,21 @@ class YouTubeNotifier {
     }
     const { scheduledStartTime, actualStartTime, actualEndTime } =
       video.liveStreamingDetails
+
     if (actualEndTime) {
-      return this.VIDEO_STATUS.LIVE_ENDED
-    } else if (actualStartTime) {
-      return this.VIDEO_STATUS.LIVE_STARTED
-    } else if (video.uploadStatus === 'processed') {
-      // actualStartTimeがundefinedの場合あり
-      return DateTime.now() > DateTime.fromISO(scheduledStartTime)
-        ? this.VIDEO_STATUS.LIVE_STARTED
-        : this.VIDEO_STATUS.UPCOMING_PREMIERE
-    } else {
-      return this.VIDEO_STATUS.UPCOMING_LIVE
+      return this.VIDEO_STATUS.ENDED
     }
+    if (actualStartTime) {
+      return this.VIDEO_STATUS.STARTED
+    }
+    return video.isPremiere &&
+      DateTime.fromISO(scheduledStartTime) < DateTime.now()
+      ? this.VIDEO_STATUS.STARTED
+      : this.VIDEO_STATUS.UPCOMING
   }
 
   async isNotificationTarget(video) {
-    if (video.status === this.VIDEO_STATUS.LIVE_ENDED) {
+    if (video.status === this.VIDEO_STATUS.ENDED) {
       console.log('Ignore ended live streams')
       return false
     }
@@ -133,18 +131,20 @@ class YouTubeNotifier {
     return diff
   }
 
-  async notify(video) {
-    const videoURL = `https://www.youtube.com/watch?v=${video.videoId}`
-
-    let text
+  generateNotificationMessage(video) {
     if (video.status === this.VIDEO_STATUS.UPLOADED) {
-      text = `:clapper: ${video.channelTitle} uploaded a new video.`
-    } else if (video.status === this.VIDEO_STATUS.LIVE_STARTED) {
-      text = `:microphone: ${video.channelTitle} is now live!`
-    } else if (
-      video.status === this.VIDEO_STATUS.UPCOMING_LIVE ||
-      video.status === this.VIDEO_STATUS.UPCOMING_PREMIERE
-    ) {
+      return `:clapper: ${video.channelTitle} uploaded a new video.`
+    }
+
+    if (video.status === this.VIDEO_STATUS.STARTED) {
+      if (video.isPremiere) {
+        return `:circus_tent: ${video.channelTitle} starts a premiere!`
+      } else {
+        return `:microphone: ${video.channelTitle} is now live!`
+      }
+    }
+
+    if (video.status === this.VIDEO_STATUS.UPCOMING) {
       const scheduledStartTime = DateTime.fromISO(
         video.liveStreamingDetails.scheduledStartTime,
       )
@@ -157,15 +157,17 @@ class YouTubeNotifier {
         ? this.getTimeDiffFromNow(scheduledStartTime)
         : 'unknown'
 
-      if (video.status === this.VIDEO_STATUS.UPCOMING_LIVE) {
-        text = `:alarm_clock: ${video.channelTitle} plans to start live at ${localeString} (${timeDiff}).`
-      } else {
-        text = `:circus_tent: ${video.channelTitle} plans to start premiere at ${localeString} (${timeDiff}).`
-      }
-    } else {
-      throw new Error(`Unknown video status: ${video.status}`)
+      const liveOrPremiere = video.isPremiere ? 'premiere' : 'live stream'
+      return `:alarm_clock: ${video.channelTitle} plans to start ${liveOrPremiere} at ${localeString} (${timeDiff}).`
     }
-    text = `${text}\n${video.title}\n${videoURL}`
+
+    throw new Error(`Unknown video status: ${video.status}`)
+  }
+
+  async notify(video) {
+    const videoURL = `https://www.youtube.com/watch?v=${video.videoId}`
+    const message = this.generateNotificationMessage(video)
+    const text = `${message}\n${video.title}\n${videoURL}`
     await axios.post(this.slack_webhook_url, { text })
   }
 
@@ -178,13 +180,11 @@ class YouTubeNotifier {
       return
     }
 
-    const isUpcoming =
-      video.status === this.VIDEO_STATUS.UPCOMING_LIVE ||
-      video.status === this.VIDEO_STATUS.UPCOMING_PREMIERE
     const lockKey = `${videoId}-${video.status}`
     // scheduledStartTimeがundefinedである場合あり
     const ttl = (
-      isUpcoming && video.liveStreamingDetails.scheduledStartTime
+      video.status === this.VIDEO_STATUS.UPCOMING &&
+      video.liveStreamingDetails.scheduledStartTime
         ? DateTime.fromISO(video.liveStreamingDetails.scheduledStartTime)
         : DateTime.now()
     )
