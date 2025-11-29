@@ -172,7 +172,7 @@ class YouTubeNotifier {
   }
 
   async run(videoId) {
-    const video = await this.youtubeFetcher.getVideoDetails(videoId)
+    const video = await this.youtubeFetcher.getVideoDetails(videoId, 3)
     video.status = this.determineVideoStatus(video)
 
     const isNotificationTarget = await this.isNotificationTarget(video)

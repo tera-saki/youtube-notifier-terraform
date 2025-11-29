@@ -8,7 +8,6 @@ class YouTubeChannelFetcher {
     }).createClient()
   }
 
-  // Get the list of subscribed channels
   async getSubscribedChannels() {
     let channels = []
     let pageToken = null
@@ -38,7 +37,30 @@ class YouTubeChannelFetcher {
     return activityResponses.data.items
   }
 
-  async getVideoDetails(videoId) {
+  async getVideoDetails(videoId, maxRetries = 0) {
+    const retryDelay = 2000
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const videoDetails = await this.#getVideoDetails(videoId)
+
+      if (
+        videoDetails.liveStreamingDetails &&
+        !videoDetails.liveStreamingDetails.scheduledStartTime
+      ) {
+        if (attempt < maxRetries) {
+          console.log(
+            `Retrying to fetch video details... (attempt ${attempt + 1})`,
+          )
+          await this.#sleep(retryDelay)
+          continue
+        }
+      }
+
+      return videoDetails
+    }
+  }
+
+  async #getVideoDetails(videoId) {
     const videoListResponses = await this.client.videos.list({
       part: ['snippet', 'liveStreamingDetails', 'status', 'statistics'],
       id: videoId,
@@ -55,6 +77,10 @@ class YouTubeChannelFetcher {
       isPremiere: video.status.uploadStatus === 'processed',
       isMembersOnly: video.statistics.viewCount === undefined,
     }
+  }
+
+  #sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
 
