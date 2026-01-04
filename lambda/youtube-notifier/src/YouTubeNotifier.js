@@ -62,7 +62,7 @@ class YouTubeNotifier {
 
     if (
       video.status === this.VIDEO_STATUS.UPLOADED &&
-      DateTime.fromISO(video.publishedAt) < DateTime.now().minus({ days: 1 })
+      DateTime.fromISO(video.publishedAt) < DateTime.now().minus({ hours: 12 })
     ) {
       console.log('Ignore old uploaded video')
       return false
@@ -95,7 +95,7 @@ class YouTubeNotifier {
       : null
     const ttl = (scheduledStartTime ?? DateTime.now())
       .plus({
-        days: 1,
+        hours: 12,
       })
       .toUnixInteger()
 
