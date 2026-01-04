@@ -9,13 +9,13 @@ resource "aws_dynamodb_table" "youtube_channel_status" {
   }
 }
 
-resource "aws_dynamodb_table" "youtube_lock" {
-  name         = "youtube-lock"
+resource "aws_dynamodb_table" "youtube_videos" {
+  name         = "youtube-videos"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "lock_key"
+  hash_key     = "videoId"
 
   attribute {
-    name = "lock_key"
+    name = "videoId"
     type = "S"
   }
 
@@ -44,9 +44,9 @@ resource "aws_iam_policy" "dynamodb_access" {
         ]
         Resource = [
           aws_dynamodb_table.youtube_channel_status.arn,
-          aws_dynamodb_table.youtube_lock.arn,
+          aws_dynamodb_table.youtube_videos.arn,
           "${aws_dynamodb_table.youtube_channel_status.arn}/index/*",
-          "${aws_dynamodb_table.youtube_lock.arn}/index/*"
+          "${aws_dynamodb_table.youtube_videos.arn}/index/*"
         ]
       }
     ]

@@ -7,7 +7,7 @@ const DynamoDBHelper = require('./DynamoDBHelper')
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
 const {
   config,
-  DYNAMODB_LOCK_TABLE_NAME,
+  DYNAMODB_VIDEO_TABLE_NAME,
   SLACK_WEBHOOK_URL,
 } = require('./constants')
 
@@ -32,28 +32,6 @@ class YouTubeNotifier {
     })
 
     this.slack_webhook_url = SLACK_WEBHOOK_URL
-  }
-
-  async getLock(key, ttl) {
-    try {
-      await DynamoDBHelper.putItem(
-        DYNAMODB_LOCK_TABLE_NAME,
-        {
-          lock_key: key,
-          ttl,
-        },
-        {
-          ConditionExpression: 'attribute_not_exists(lock_key)',
-        },
-      )
-      return true
-    } catch (e) {
-      if (e.name === 'ConditionalCheckFailedException') {
-        console.log('Duplicate detected:', key)
-        return false
-      }
-      throw e
-    }
   }
 
   // liveBroadcastContentが実際のステータスと同期していない場合あり
@@ -100,7 +78,7 @@ class YouTubeNotifier {
       )
       const isActivityFound = activities
         .filter((item) => item.snippet.type === 'upload')
-        .some((item) => item.contentDetails.upload.videoId === video.id)
+        .some((item) => item.contentDetails.upload.videoId === video.videoId)
       if (!isActivityFound) {
         console.log(
           'Ignore the video because it seems members-only content of channel that you are not member of',
@@ -109,6 +87,53 @@ class YouTubeNotifier {
       }
     }
     return true
+  }
+
+  async updateVideoTable(video) {
+    const scheduledStartTime = video.liveStreamingDetails
+      ? DateTime.fromISO(video.liveStreamingDetails.scheduledStartTime)
+      : null
+    const ttl = (scheduledStartTime ?? DateTime.now())
+      .plus({
+        days: 1,
+      })
+      .toUnixInteger()
+
+    try {
+      await DynamoDBHelper.putItem(
+        DYNAMODB_VIDEO_TABLE_NAME,
+        {
+          videoId: video.videoId,
+          videoStatus: video.status,
+          title: video.title,
+          channelTitle: video.channelTitle,
+          scheduledStartTime: scheduledStartTime
+            ? scheduledStartTime.toUnixInteger()
+            : null,
+          isPremiere: video.isPremiere,
+          ttl,
+        },
+        {
+          ConditionExpression:
+            'attribute_not_exists(videoId) OR (attribute_exists(videoId) AND #videoStatus <> :videoStatus)',
+          ExpressionAttributeNames: {
+            '#videoStatus': 'videoStatus',
+          },
+          ExpressionAttributeValues: {
+            ':videoStatus': video.status,
+          },
+        },
+      )
+      return true
+    } catch (e) {
+      if (e.name === 'ConditionalCheckFailedException') {
+        console.log(
+          `Duplicate detected: videoId = ${video.videoId}, status = ${video.status}`,
+        )
+        return false
+      }
+      throw e
+    }
   }
 
   getTimeDiffFromNow(datetime) {
@@ -180,18 +205,8 @@ class YouTubeNotifier {
       return
     }
 
-    const lockKey = `${videoId}-${video.status}`
-    // scheduledStartTimeがundefinedである場合あり
-    const ttl = (
-      video.status === this.VIDEO_STATUS.UPCOMING &&
-      video.liveStreamingDetails.scheduledStartTime
-        ? DateTime.fromISO(video.liveStreamingDetails.scheduledStartTime)
-        : DateTime.now()
-    )
-      .plus({ days: 1 })
-      .toUnixInteger()
-    const lockAcquired = await this.getLock(lockKey, ttl)
-    if (!lockAcquired) {
+    const updated = await this.updateVideoTable(video)
+    if (!updated) {
       console.log('Notification already sent for this video and status')
       return
     }
