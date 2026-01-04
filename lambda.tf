@@ -25,6 +25,13 @@ locals {
       memory_size = 128
       timeout     = 10
     }
+    "slack-app-command-handler" = {
+      environment = {
+        DYNAMODB_VIDEO_TABLE_NAME = aws_dynamodb_table.youtube_videos.name
+      }
+      memory_size = 128
+      timeout     = 10
+    }
   }
 
   lambda_layer_hashes = {
@@ -185,4 +192,30 @@ resource "aws_iam_policy" "ssm_access" {
 resource "aws_iam_role_policy_attachment" "lambda_ssm_access" {
   role       = aws_iam_role.lambda["youtube-notifier"].name
   policy_arn = aws_iam_policy.ssm_access.arn
+}
+
+resource "aws_iam_policy" "slack_app_command_dynamodb" {
+  name        = "slack_app_command_dynamodb_access"
+  description = "Allow slack-app-command-handler Lambda to read youtube-videos table"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Scan",
+          "dynamodb:GetItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.youtube_videos.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "slack_app_command_dynamodb" {
+  role       = aws_iam_role.lambda["slack-app-command-handler"].name
+  policy_arn = aws_iam_policy.slack_app_command_dynamodb.arn
 }

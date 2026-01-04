@@ -110,6 +110,28 @@ resource "aws_apigatewayv2_route" "youtube_webhook_post" {
   authorization_type = "CUSTOM"
 }
 
+resource "aws_apigatewayv2_integration" "slack_app_command_handler" {
+  api_id           = aws_apigatewayv2_api.youtube_webhook.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.main["slack-app-command-handler"].invoke_arn
+
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "slack_app_command_handler" {
+  api_id    = aws_apigatewayv2_api.youtube_webhook.id
+  route_key = "POST /schedule"
+  target    = "integrations/${aws_apigatewayv2_integration.slack_app_command_handler.id}"
+}
+
+resource "aws_lambda_permission" "slack_app_command_handler" {
+  statement_id  = "AllowAPIGatewayInvokeSlackCommand"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.main["slack-app-command-handler"].function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.youtube_webhook.execution_arn}/*/*"
+}
+
 resource "aws_cloudwatch_log_group" "apigw" {
   name              = "/aws/apigw/${aws_apigatewayv2_api.youtube_webhook.name}"
   retention_in_days = 30
