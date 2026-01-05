@@ -1,11 +1,56 @@
+const crypto = require('node:crypto')
+
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb')
 const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb')
-const { DateTime } = require('luxon')
+const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm')
+const { DateTime, Duration } = require('luxon')
 
 const dynamodbClient = new DynamoDBClient()
 const docClient = DynamoDBDocumentClient.from(dynamodbClient)
+const ssmClient = new SSMClient()
 
 const DYNAMODB_VIDEO_TABLE_NAME = process.env.DYNAMODB_VIDEO_TABLE_NAME
+const SLACK_APP_SIGNING_SECRET_NAME = process.env.SLACK_APP_SIGNING_SECRET_NAME
+
+async function getSlackSigningSecret() {
+  const result = await ssmClient.send(
+    new GetParameterCommand({
+      Name: SLACK_APP_SIGNING_SECRET_NAME,
+      WithDecryption: true,
+    }),
+  )
+
+  return result.Parameter.Value
+}
+
+function verifySlackRequest(event, signingSecret) {
+  const timestamp = event.headers['x-slack-request-timestamp']
+  const signature = event.headers['x-slack-signature']
+
+  if (!timestamp || !signature) {
+    throw new Error('Missing Slack request headers')
+  }
+
+  if (
+    DateTime.now() - DateTime.fromSeconds(Number.parseInt(timestamp, 10)) >
+    Duration.fromObject({ minutes: 1 })
+  ) {
+    throw new Error('Request timestamp too old')
+  }
+
+  const baseString = `v0:${timestamp}:${event.body}`
+  const computedSignature =
+    'v0=' +
+    crypto
+      .createHmac('sha256', signingSecret)
+      .update(baseString, 'utf8')
+      .digest('hex')
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature, 'hex'),
+    Buffer.from(computedSignature, 'hex'),
+  )
+}
 
 async function getScheduledStreamings() {
   const params = {
@@ -82,6 +127,11 @@ exports.handler = async (event) => {
   console.log('Received Slack command:', event)
 
   try {
+    const signingSecret = await getSlackSigningSecret()
+    if (!verifySlackRequest(event, signingSecret)) {
+      throw new Error('Invalid Slack request signature')
+    }
+
     const streamings = await getScheduledStreamings()
     const blocks = formatStreamingBlocks(streamings)
 
@@ -89,16 +139,17 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        response_type: 'in_channel',
+        response_type: 'ephemeral',
         blocks,
       }),
     }
   } catch (error) {
-    console.error('Error fetching video table contents:', error)
+    console.error('Error processing Slack command:', error)
     return {
-      statusCode: 500,
+      statusCode: 401,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text: 'Failed to fetch video table contents.',
+        text: 'Unauthorized',
       }),
     }
   }

@@ -27,7 +27,8 @@ locals {
     }
     "slack-app-command-handler" = {
       environment = {
-        DYNAMODB_VIDEO_TABLE_NAME = aws_dynamodb_table.youtube_videos.name
+        DYNAMODB_VIDEO_TABLE_NAME     = aws_dynamodb_table.youtube_videos.name
+        SLACK_APP_SIGNING_SECRET_NAME = aws_ssm_parameter.slack_app_signing_secret.name
       }
       memory_size = 128
       timeout     = 10
@@ -156,9 +157,9 @@ resource "aws_iam_role_policy_attachment" "lambda" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_policy" "ssm_access" {
-  name        = "lambda_ssm_parameter_access"
-  description = "Allow Lambda function to read SSM parameters"
+resource "aws_iam_policy" "youtube_notifier_ssm_access" {
+  name        = "youtube_notifier_ssm_parameter_access"
+  description = "Allow youtube-notifier Lambda function to read SSM parameters"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -189,9 +190,9 @@ resource "aws_iam_policy" "ssm_access" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_ssm_access" {
+resource "aws_iam_role_policy_attachment" "youtube_notifier_ssm_access" {
   role       = aws_iam_role.lambda["youtube-notifier"].name
-  policy_arn = aws_iam_policy.ssm_access.arn
+  policy_arn = aws_iam_policy.youtube_notifier_ssm_access.arn
 }
 
 resource "aws_iam_policy" "slack_app_command_dynamodb" {
@@ -218,4 +219,42 @@ resource "aws_iam_policy" "slack_app_command_dynamodb" {
 resource "aws_iam_role_policy_attachment" "slack_app_command_dynamodb" {
   role       = aws_iam_role.lambda["slack-app-command-handler"].name
   policy_arn = aws_iam_policy.slack_app_command_dynamodb.arn
+}
+
+resource "aws_iam_policy" "slack_app_ssm_access" {
+  name        = "slack_app_ssm_parameter_access"
+  description = "Allow slack-app-command-handler Lambda function to read SSM parameters"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = [
+          aws_ssm_parameter.slack_app_signing_secret.arn
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${local.region}.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "slack_app_ssm_access" {
+  role       = aws_iam_role.lambda["slack-app-command-handler"].name
+  policy_arn = aws_iam_policy.slack_app_ssm_access.arn
 }

@@ -11,8 +11,14 @@ variable "alert_email" {
 }
 
 variable "hub_secret_version" {
-  description = "Secret for validating webhook requests"
+  description = "Secret version for validating webhook requests"
   type        = number
   default     = 1
+  sensitive   = true
+}
+
+variable "slack_app_secret" {
+  description = "Slack App Signing Secret"
+  type        = string
   sensitive   = true
 }
