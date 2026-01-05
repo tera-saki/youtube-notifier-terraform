@@ -7,43 +7,61 @@ const docClient = DynamoDBDocumentClient.from(dynamodbClient)
 
 const DYNAMODB_VIDEO_TABLE_NAME = process.env.DYNAMODB_VIDEO_TABLE_NAME
 
-async function getScheduledVideos() {
+async function getScheduledStreamings() {
   const params = {
     TableName: DYNAMODB_VIDEO_TABLE_NAME,
   }
 
   const result = await docClient.send(new ScanCommand(params))
-  return result.Items.filter((video) => video.scheduledStartTime).sort(
-    (a, b) => a.scheduledStartTime - b.scheduledStartTime,
-  )
+
+  const now = DateTime.now()
+  const from = now.minus({ hours: 12 })
+  const to = now.plus({ weeks: 1 })
+
+  const streamings = result.Items.filter((s) => {
+    if (!s.scheduledStartTime) {
+      return false
+    }
+    const scheduledTime = DateTime.fromSeconds(s.scheduledStartTime)
+    return scheduledTime >= from && scheduledTime <= to
+  }).sort((a, b) => a.scheduledStartTime - b.scheduledStartTime)
+
+  return streamings
 }
 
-function formatVideoBlocks(videos) {
-  const blocks = [
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Scheduled Videos*`,
-      },
+function formatStreamingBlocks(streamings) {
+  const header = {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `*Scheduled Streamings*`,
     },
-    {
-      type: 'divider',
-    },
-  ]
+  }
+  const divider = {
+    type: 'divider',
+  }
 
-  videos.forEach((video) => {
-    const scheduledStartTime = DateTime.fromSeconds(video.scheduledStartTime)
+  function generateBlock(streaming) {
+    const scheduledStartTime = DateTime.fromSeconds(
+      streaming.scheduledStartTime,
+    )
+    const scheduledTimeStr = scheduledStartTime
       .setZone('Asia/Tokyo')
-      .toFormat('MM/dd HH:mm')
-    const url = `https://www.youtube.com/watch?v=${video.videoId}`
-    const emoji = video.isPremiere ? ':circus_tent:' : ':microphone:'
+      .setLocale('ja')
+      .toFormat('MM/dd(ccc) HH:mm')
+    const url = `https://www.youtube.com/watch?v=${streaming.videoId}`
+    const emoji =
+      streaming.videoStatus === 'started'
+        ? streaming.isPremiere
+          ? ':circus_tent:'
+          : ':microphone:'
+        : ':alarm_clock:'
 
-    blocks.push({
+    return {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} ${scheduledStartTime} ${video.title} (${video.channelTitle})`,
+        text: `${emoji} ${scheduledTimeStr}~ *${streaming.channelTitle}*\n${streaming.title}`,
       },
       accessory: {
         type: 'button',
@@ -53,22 +71,19 @@ function formatVideoBlocks(videos) {
         },
         url,
       },
-    })
+    }
+  }
 
-    blocks.push({
-      type: 'divider',
-    })
-  })
-
-  return blocks
+  const blocks = streamings.flatMap((s) => [generateBlock(s), divider])
+  return [header, divider, ...blocks]
 }
 
 exports.handler = async (event) => {
   console.log('Received Slack command:', event)
 
   try {
-    const videos = await getScheduledVideos()
-    const blocks = formatVideoBlocks(videos)
+    const streamings = await getScheduledStreamings()
+    const blocks = formatStreamingBlocks(streamings)
 
     return {
       statusCode: 200,
