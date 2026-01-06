@@ -1,7 +1,7 @@
 const fs = require('node:fs')
 
 const axios = require('axios')
-const { DateTime } = require('luxon')
+const { DateTime, Duration } = require('luxon')
 
 const DynamoDBHelper = require('./DynamoDBHelper')
 const YouTubeChannelFetcher = require('./YouTubeChannelFetcher')
@@ -10,6 +10,8 @@ const {
   DYNAMODB_VIDEO_TABLE_NAME,
   SLACK_WEBHOOK_URL,
 } = require('./constants')
+
+const video_retension_period_hours = 12
 
 class YouTubeNotifier {
   VIDEO_STATUS = {
@@ -55,19 +57,6 @@ class YouTubeNotifier {
   }
 
   async isNotificationTarget(video) {
-    if (video.status === this.VIDEO_STATUS.ENDED) {
-      console.log('Ignore ended live streams')
-      return false
-    }
-
-    if (
-      video.status === this.VIDEO_STATUS.UPLOADED &&
-      DateTime.fromISO(video.publishedAt) < DateTime.now().minus({ hours: 12 })
-    ) {
-      console.log('Ignore old uploaded video')
-      return false
-    }
-
     if (config.target_members_only_contents === 'none' && video.isMembersOnly) {
       console.log('Ignore members-only content')
       return false
@@ -95,7 +84,7 @@ class YouTubeNotifier {
       : null
     const ttl = (scheduledStartTime ?? DateTime.now())
       .plus({
-        hours: 12,
+        hours: video_retension_period_hours,
       })
       .toUnixInteger()
 
@@ -200,12 +189,35 @@ class YouTubeNotifier {
     const video = await this.youtubeFetcher.getVideoDetails(videoId, 3)
     video.status = this.determineVideoStatus(video)
 
+    if (
+      video.status === this.VIDEO_STATUS.UPLOADED &&
+      DateTime.now() - DateTime.fromISO(video.publishedAt) >
+        Duration.fromObject({ hours: video_retension_period_hours })
+    ) {
+      console.log('Ignore old uploaded video')
+      return
+    }
+
+    if (
+      video.status === this.VIDEO_STATUS.ENDED &&
+      DateTime.now() -
+        DateTime.fromISO(video.liveStreamingDetails.scheduledStartTime) >
+        Duration.fromObject({ hours: video_retension_period_hours })
+    ) {
+      console.log('Ignore old ended live stream')
+      return
+    }
+
     const isNotificationTarget = await this.isNotificationTarget(video)
     if (!isNotificationTarget) {
+      console.log('Video is not a notification target')
       return
     }
 
     const updated = await this.updateVideoTable(video)
+    if (video.status === this.VIDEO_STATUS.ENDED) {
+      return
+    }
     if (!updated) {
       console.log('Notification already sent for this video and status')
       return

@@ -64,7 +64,7 @@ async function getScheduledStreamings() {
   const to = now.plus({ weeks: 1 })
 
   const streamings = result.Items.filter((s) => {
-    if (!s.scheduledStartTime) {
+    if (!['upcoming', 'started'].includes(s.videoStatus)) {
       return false
     }
     const scheduledTime = DateTime.fromSeconds(s.scheduledStartTime)
