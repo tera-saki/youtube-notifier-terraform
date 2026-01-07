@@ -134,7 +134,7 @@ resource "aws_lambda_function" "main" {
   filename         = terraform_data.lambda_function[each.key].output.zip_file
   role             = aws_iam_role.lambda[each.key].arn
   handler          = "src/index.handler"
-  runtime          = "nodejs22.x"
+  runtime          = "nodejs24.x"
   memory_size      = each.value.memory_size
   timeout          = each.value.timeout
   source_code_hash = filesha256(terraform_data.lambda_function[each.key].output.zip_file)
