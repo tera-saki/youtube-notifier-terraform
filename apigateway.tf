@@ -29,8 +29,9 @@ resource "aws_apigatewayv2_stage" "youtube_webhook" {
   }
 
   default_route_settings {
-    throttling_burst_limit = 5
-    throttling_rate_limit  = 5
+    throttling_burst_limit   = 5
+    throttling_rate_limit    = 5
+    detailed_metrics_enabled = true
   }
 }
 
